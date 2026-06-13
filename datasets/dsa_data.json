@@ -1,0 +1,288 @@
+{
+    "greeting_data": {
+        "hello": [
+            "Hello! How can I help you today?",
+            "Hi there! What can I help you with?",
+            "Hey! How may I assist you?",
+            "Hello! Feel free to ask me anything about DSA.",
+            "Hi! What would you like to learn today?",
+            "Hey there! How can I assist you today?",
+            "Hello! I'm ready to help. What would you like to know?",
+            "Hi! Need help with Sorting, Arrays, or Linked Lists?",
+            "Welcome! How can I help you today?",
+            "Hello! What topic would you like to explore?"
+        ],
+        "good_morning": [
+            "Good morning! How can I help you today?",
+            "Good morning! What would you like to learn today?",
+            "Morning! How may I assist you?",
+            "Good morning! Ready to explore some DSA concepts?",
+            "Morning! What can I do for you today?"
+        ],
+        "good_afternoon": [
+            "Good afternoon! How can I help you?",
+            "Good afternoon! What would you like to know today?",
+            "Hope you're having a great afternoon. How may I assist you?",
+            "Good afternoon! Ready to learn something new?",
+            "Good afternoon! What can I help you with?"
+        ],
+        "good_evening": [
+            "Good evening! How can I assist you today?",
+            "Good evening! What topic would you like to discuss?",
+            "Hope you're having a pleasant evening. How can I help?",
+            "Good evening! Ready for some DSA learning?",
+            "Good evening! What can I do for you today?"
+        ]
+    },
+    "sorting": {
+        "general": {
+            "definition": [
+                "Sorting is the process of arranging data in a specific order such as ascending or descending.",
+                "Sorting organizes elements so they can be searched and processed efficiently.",
+                "Sorting helps improve the performance of many algorithms."
+            ],
+            "types": [
+                "Bubble Sort",
+                "Selection Sort",
+                "Insertion Sort",
+                "Merge Sort",
+                "Quick Sort"
+            ]
+        },
+        "bubble_sort": {
+            "explanations": [
+                "Bubble Sort repeatedly compares adjacent elements and swaps them if they are in the wrong order.",
+                "Bubble Sort moves the largest unsorted element to its correct position during each pass.",
+                "Bubble Sort is a simple comparison-based sorting algorithm suitable for learning purposes."
+            ],
+            "time_complexity": [
+                "Best Case: O(n)",
+                "Average Case: O(n²)",
+                "Worst Case: O(n²)"
+            ],
+            "sample_codes": [
+                "for(int i=0;i<arr.length-1;i++)",
+                "{",
+                "for(int j=0;j<arr.length-i-1;j++)",
+                "{ if(arr[j]>arr[j+1])",
+                "{ int temp=arr[j];",
+                " arr[j]=arr[j+1];",
+                "arr[j+1]=temp; }",
+                "}",
+                "}"
+            ]
+        },
+        "selection_sort": {
+            "explanations": [
+                "Selection Sort repeatedly selects the smallest element from the unsorted portion and places it at the beginning.",
+                "Selection Sort divides the array into sorted and unsorted regions.",
+                "Selection Sort reduces the unsorted section one element at a time."
+            ],
+            "time_complexity": [
+                "Best Case: O(n²)",
+                "Average Case: O(n²)",
+                "Worst Case: O(n²)"
+            ],
+            "sample_codes": [
+                "for(int i=0;i<arr.length-1;i++){ int min=i; for(int j=i+1;j<arr.length;j++){ if(arr[j]<arr[min]) min=j; } int temp=arr[min]; arr[min]=arr[i]; arr[i]=temp; }"
+            ]
+        },
+        "insertion_sort": {
+            "explanations": [
+                "Insertion Sort builds a sorted array one element at a time.",
+                "Insertion Sort inserts each element into its correct position in the already sorted part.",
+                "Insertion Sort is efficient for small or nearly sorted datasets."
+            ],
+            "time_complexity": [
+                "Best Case: O(n)",
+                "Average Case: O(n²)",
+                "Worst Case: O(n²)"
+            ],
+            "sample_codes": [
+                "for(int i=1;i<arr.length;i++){ int key=arr[i]; int j=i-1; while(j>=0 && arr[j]>key){ arr[j+1]=arr[j]; j--; } arr[j+1]=key; }"
+            ]
+        },
+        "merge_sort": {
+            "explanations": [
+                "Merge Sort uses divide and conquer to sort an array.",
+                "Merge Sort recursively splits the array and merges sorted halves.",
+                "Merge Sort is stable and performs well on large datasets."
+            ],
+            "time_complexity": [
+                "Best Case: O(n log n)",
+                "Average Case: O(n log n)",
+                "Worst Case: O(n log n)"
+            ],
+            "sample_codes": [
+                "void mergeSort(int[] arr,int l,int r){ if(l<r){ int m=(l+r)/2; mergeSort(arr,l,m); mergeSort(arr,m+1,r); merge(arr,l,m,r); } }"
+            ]
+        },
+        "quick_sort": {
+            "explanations": [
+                "Quick Sort selects a pivot and partitions the array around it.",
+                "Quick Sort recursively sorts elements smaller and larger than the pivot.",
+                "Quick Sort is one of the fastest sorting algorithms in practice."
+            ],
+            "time_complexity": [
+                "Best Case: O(n log n)",
+                "Average Case: O(n log n)",
+                "Worst Case: O(n²)"
+            ],
+            "sample_codes": [
+                "void quickSort(int[] arr,int low,int high){ if(low<high){ int pi=partition(arr,low,high); quickSort(arr,low,pi-1); quickSort(arr,pi+1,high); } }"
+            ]
+        }
+    },
+    "array": {
+        "definition": [
+            "An array is a collection of elements stored in contiguous memory locations.",
+            "Arrays store multiple values of the same data type using indexes.",
+            "Arrays allow fast access to elements using their index."
+        ],
+        "facts": [
+            "Arrays store elements in contiguous memory locations.",
+            "Arrays provide O(1) access using indexes.",
+            "Arrays are cache-friendly because of contiguous memory."
+        ],
+        "applications": [
+            "Storing student records",
+            "Implementing matrices",
+            "Searching algorithms",
+            "Sorting algorithms",
+            "Image processing",
+            "Dynamic programming tables"
+        ],
+        "examples": [
+            "[10, 20, 30, 40]",
+            "Marks of students in a class",
+            "Temperature readings for a week"
+        ]
+    },
+    "linked_list": {
+        "definition": [
+            "A Linked List is a linear data structure where elements are stored in nodes connected by pointers.",
+            "A Linked List consists of nodes, where each node contains data and a reference to the next node.",
+            "Unlike arrays, linked list elements are not stored in contiguous memory locations."
+        ],
+        "facts": [
+            "Linked Lists use dynamic memory allocation.",
+            "Insertion and deletion are efficient compared to arrays.",
+            "Linked Lists do not provide direct access using indexes.",
+            "Each node contains data and a link to another node.",
+            "The last node points to NULL in a singly linked list."
+        ],
+        "applications": [
+            "Implementing stacks",
+            "Implementing queues",
+            "Graph adjacency lists",
+            "Music playlists",
+            "Browser history navigation",
+            "Memory management systems"
+        ],
+        "advantages": [
+            "Dynamic size",
+            "Efficient insertion and deletion",
+            "No memory wastage due to fixed size",
+            "Easy implementation of dynamic data structures"
+        ],
+        "disadvantages": [
+            "Extra memory required for pointers",
+            "No random access",
+            "Traversal is slower than arrays",
+            "More complex implementation"
+        ],
+        "types": {
+            "singly_linked_list": {
+                "explanations": [
+                    "A Singly Linked List consists of nodes where each node stores data and a pointer to the next node.",
+                    "Traversal in a Singly Linked List is possible only in the forward direction.",
+                    "The last node of a Singly Linked List points to NULL."
+                ],
+                "sample_codes": [
+                    "class Node {",
+                    "    int data;",
+                    "    Node next;",
+                    "    Node(int data){",
+                    "        this.data = data;",
+                    "        this.next = null;",
+                    "    }",
+                    "}"
+                ]
+            },
+            "doubly_linked_list": {
+                "explanations": [
+                    "A Doubly Linked List contains two pointers in each node: one to the next node and one to the previous node.",
+                    "It allows traversal in both forward and backward directions.",
+                    "Doubly Linked Lists require extra memory because each node stores an additional pointer."
+                ],
+                "sample_codes": [
+                    "class Node {",
+                    "    int data;",
+                    "    Node prev;",
+                    "    Node next;",
+                    "    Node(int data){",
+                    "        this.data = data;",
+                    "        prev = null;",
+                    "        next = null;",
+                    "    }",
+                    "}"
+                ]
+            },
+            "circular_linked_list": {
+                "explanations": [
+                    "In a Circular Linked List, the last node points back to the first node instead of NULL.",
+                    "The nodes form a circular structure that can be traversed continuously.",
+                    "Circular Linked Lists are commonly used in round-robin scheduling."
+                ],
+                "sample_codes": [
+                    "class Node {",
+                    "    int data;",
+                    "    Node next;",
+                    "    Node(int data){",
+                    "        this.data = data;",
+                    "        next = this;",
+                    "    }",
+                    "}"
+                ]
+            },
+            "circular_doubly_linked_list": {
+                "explanations": [
+                    "A Circular Doubly Linked List combines the features of circular and doubly linked lists.",
+                    "Each node contains pointers to both the next and previous nodes.",
+                    "The last node connects back to the first node, creating a circular structure."
+                ],
+                "sample_codes": [
+                    "class Node {",
+                    "    int data;",
+                    "    Node prev;",
+                    "    Node next;",
+                    "    Node(int data){",
+                    "        this.data = data;",
+                    "        prev = this;",
+                    "        next = this;",
+                    "    }",
+                    "}"
+                ]
+            }
+        }
+    },
+    "operations": {
+        "insertion": [
+            "Insertion at Beginning",
+            "Insertion at End",
+            "Insertion at Specific Position"
+        ],
+        "deletion": [
+            "Deletion from Beginning",
+            "Deletion from End",
+            "Deletion by Value",
+            "Deletion at Specific Position"
+        ],
+        "traversal": [
+            "Visit each node from head to tail."
+        ],
+        "searching": [
+            "Sequentially compare each node until the target value is found."
+        ]
+    }
+}
