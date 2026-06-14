@@ -1,138 +1,246 @@
-import random
 import json
+import random
 import pyttsx3
 
 # -----------------------
-# Load Dataset
+# LOAD DATASET
 # -----------------------
-with open("datasets/dsa_data.json", "r") as file:
+
+with open("datasets/dsa_data.json", "r", encoding="utf-8") as file:
     dsa = json.load(file)
 
 # -----------------------
-# TTS Engine (initialize once - FIXED)
+# TTS ENGINE
 # -----------------------
-engine = pyttsx3.init()
-engine.setProperty("rate", 150)
+
+
 
 def say(text):
+    engine = pyttsx3.init()
+    engine.setProperty("rate", 150)
     engine.say(str(text))
     engine.runAndWait()
 
 # -----------------------
-# INTENT CONFIG (NEW ARCHITECTURE)
+# RESPONSE FUNCTION
 # -----------------------
-INTENTS = {
-    "sorting": ["sorting"],
-    "bubble_sort": ["bubble sort", "bubble"],
-    "selection_sort": ["selection sort"],
-    "insertion_sort": ["insertion sort"],
-    "merge_sort": ["merge sort"],
-    "quick_sort": ["quick sort"],
-    "array": ["array"],
-    "linked_list": ["linked list", "linkedlist"],
-    "operations": ["insert", "delete", "traversal", "search"],
-    "greeting": ["hi", "hello", "hey", "good morning", "good evening", "good afternoon"]
-}
 
-# -----------------------
-# DETECT INTENT (UPGRADED)
-# -----------------------
-def detect_intent(text):
-    text = text.lower()
+def get_response(user_input):
 
-    for intent, keywords in INTENTS.items():
-        if any(k in text for k in keywords):
+    text = user_input.lower()
 
-            if intent == "greeting":
-                if "morning" in text or text == "good morning":
-                    return ("greeting", "greeting_data", "good_morning")
-                if "afternoon" in text:
-                    return ("greeting", "greeting_data", "good_afternoon")
-                if "evening" in text:
-                    return ("greeting", "greeting_data", "good_evening")
-                return ("greeting", "greeting_data", "hello")
+    # Greetings
+    if text in ["hi", "hello", "hey"]:
+        return random.choice(
+            dsa["greeting_data"]["hello"]
+        )
 
-            if intent in dsa.get("sorting", {}):
-                return ("dsa", intent, detect_subtopic(text))
+    if text in ["good morning", "gm"]:
+        return random.choice(
+            dsa["greeting_data"]["good_morning"]
+        )
 
-            if intent in dsa.get("array", {}):
-                return ("dsa", "array", detect_subtopic(text))
+    if text in ["good afternoon", "ga"]:
+        return random.choice(
+            dsa["greeting_data"]["good_afternoon"]
+        )
 
-            if intent in dsa.get("linked_list", {}):
-                return ("dsa", "linked_list", detect_subtopic(text))
+    if text in ["good evening", "ge"]:
+        return random.choice(
+            dsa["greeting_data"]["good_evening"]
+        )
 
-            if intent == "operations":
-                return ("dsa", "operations", detect_subtopic(text))
+    # Sorting Definition
 
-    return ("unknown", "unknown", "unknown")
+    if any(word in text for word in [
+        "what is sorting",
+        "define sorting",
+        "explain sorting",
+        "tell me about sorting"
+    ]):
+        return random.choice(
+            dsa["sorting"]["general"]["definition"]
+        )
 
-# -----------------------
-# SUBTOPIC DETECTION (NEW)
-# -----------------------
-def detect_subtopic(text):
-    if "time complexity" in text:
-        return "time_complexity"
-    if "code" in text:
-        return "sample_code"
-    if "types" in text:
-        return "types"
-    if "fact" in text:
-        return "facts"
-    if "application" in text:
-        return "applications"
-    if "example" in text:
-        return "examples"
-    return "explanation"
+    # Sorting Types
 
-# -----------------------
-# RESPONSE ENGINE (FIXED + CLEAN)
-# -----------------------
-def generate_text(intent):
-    main, topic, sub = intent
+    if "types of sorting" in text or "sorting types" in text:
+        return "\n".join(
+            dsa["sorting"]["general"]["types"]
+        )
 
-    if main == "greeting":
-        return random.choice(dsa["greeting_data"][sub])
+    # Bubble Sort
 
-    if main == "dsa":
+    if "bubble sort" in text:
 
-        # sorting
-        if topic in dsa.get("sorting", {}):
-            data = dsa["sorting"][topic]
+        if "time complexity" in text:
+            return "\n".join(
+                dsa["sorting"]["bubble_sort"]["time_complexity"]
+            )
 
-            if sub in data:
-                return random.choice(data[sub])
+        if "code" in text:
+            return "\n".join(
+                dsa["sorting"]["bubble_sort"]["sample_codes"]
+            )
 
-            return random.choice(data["explanations"])
+        return random.choice(
+            dsa["sorting"]["bubble_sort"]["explanations"]
+        )
 
-        # array
-        if topic == "array":
-            return random.choice(dsa["array"][sub])
+    # Selection Sort
 
-        # linked list
-        if topic == "linked_list":
-            return random.choice(dsa["linked_list"][sub])
+    if "selection sort" in text:
 
-        # operations (NEW)
-        if topic == "operations":
-            return random.choice(dsa["operations"][sub])
+        if "time complexity" in text:
+            return "\n".join(
+                dsa["sorting"]["selection_sort"]["time_complexity"]
+            )
 
-    return "I don't know about that topic yet."
+        if "code" in text:
+            return "\n".join(
+                dsa["sorting"]["selection_sort"]["sample_codes"]
+            )
+
+        return random.choice(
+            dsa["sorting"]["selection_sort"]["explanations"]
+        )
+
+    # Insertion Sort
+
+    if "insertion sort" in text:
+
+        if "time complexity" in text:
+            return "\n".join(
+                dsa["sorting"]["insertion_sort"]["time_complexity"]
+            )
+
+        if "code" in text:
+            return "\n".join(
+                dsa["sorting"]["insertion_sort"]["sample_codes"]
+            )
+
+        return random.choice(
+            dsa["sorting"]["insertion_sort"]["explanations"]
+        )
+
+    # Merge Sort
+
+    if "merge sort" in text:
+
+        if "time complexity" in text:
+            return "\n".join(
+                dsa["sorting"]["merge_sort"]["time_complexity"]
+            )
+
+        if "code" in text:
+            return "\n".join(
+                dsa["sorting"]["merge_sort"]["sample_codes"]
+            )
+
+        return random.choice(
+            dsa["sorting"]["merge_sort"]["explanations"]
+        )
+
+    # Quick Sort
+
+    if "quick sort" in text:
+
+        if "time complexity" in text:
+            return "\n".join(
+                dsa["sorting"]["quick_sort"]["time_complexity"]
+            )
+
+        if "code" in text:
+            return "\n".join(
+                dsa["sorting"]["quick_sort"]["sample_codes"]
+            )
+
+        return random.choice(
+            dsa["sorting"]["quick_sort"]["explanations"]
+        )
+
+    # Array
+
+    if "array" in text:
+
+        if "fact" in text:
+            return random.choice(
+                dsa["array"]["facts"]
+            )
+
+        if "application" in text:
+            return random.choice(
+                dsa["array"]["applications"]
+            )
+
+        if "example" in text:
+            return random.choice(
+                dsa["array"]["examples"]
+            )
+
+        return random.choice(
+            dsa["array"]["definition"]
+        )
+
+    # Linked List
+
+    if "linked list" in text:
+
+        if "fact" in text:
+            return random.choice(
+                dsa["linked_list"]["facts"]
+            )
+
+        if "application" in text:
+            return random.choice(
+                dsa["linked_list"]["applications"]
+            )
+
+        if "advantage" in text:
+            return random.choice(
+                dsa["linked_list"]["advantages"]
+            )
+
+        if "disadvantage" in text:
+            return random.choice(
+                dsa["linked_list"]["disadvantages"]
+            )
+
+        return random.choice(
+            dsa["linked_list"]["definition"]
+        )
+
+    return random.choice([
+        "I don't know about that topic yet.",
+        "Try asking about Sorting, Arrays or Linked Lists.",
+        "My dataset doesn't contain that topic currently."
+    ])
+
 
 # -----------------------
 # MAIN LOOP
 # -----------------------
-print("DSA BOT STARTED (INDUSTRY LEVEL VERSION)")
+
+print("=" * 40)
+print("      DSA CHATBOT")
+print("=" * 40)
 
 while True:
-    user = input("\nYou: ").lower()
 
-    if user in ["exit", "quit", "bye"]:
-        print("Bot: Goodbye!")
+    user_input = input("\nYou: ")
+
+    if user_input.lower() in [
+        "exit",
+        "quit",
+        "bye",
+        "stop"
+    ]:
+        print("\nBot: Goodbye!")
         say("Goodbye")
         break
 
-    intent = detect_intent(user)
-    response = generate_text(intent)
+    response = get_response(user_input)
 
-    print("Bot:", response)
+    print("\nBot:", response)
+
     say(response)
