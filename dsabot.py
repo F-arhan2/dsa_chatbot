@@ -8,6 +8,7 @@ import math
 import sys
 import os
 import webbrowser
+
 # Set up global styling attributes for a Cyberpunk / Iron Man HUD feel
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -61,8 +62,11 @@ def get_response(user_input):
     """Processes natural language keyword strings and maps directly onto the user's JSON keys."""
     text = user_input.lower().strip()
     
+    # Check for close/exit command triggers
+    if text in ["exit", "quit", "close", "shutdown", "exit cmd"]:
+        return "[SYSTEM SHUTDOWN]: De-initializing core UI buffers. Goodbye."
+
     try:
-        
         # Greetings Match
         if text in ["hi", "hello", "hey"]:
             return random.choice(dsa["greeting_data"]["hello"])
@@ -72,7 +76,7 @@ def get_response(user_input):
             return random.choice(dsa["greeting_data"]["good_afternoon"])
         if text in ["good evening", "ge"]:
             return random.choice(dsa["greeting_data"]["good_evening"])
-
+        
         # Sorting Sub-matrix Matches
         if any(word in text for word in ["what is sorting", "define sorting", "explain sorting", "tell me about sorting"]):
             return random.choice(dsa["sorting"]["general"]["definition"])
@@ -91,7 +95,6 @@ def get_response(user_input):
 
         # Linked List Variant Parsers (Deep Nesting Parsing)
         if "linked list" in text or "node list" in text:
-            # Check detailed specific variant models first
             if "circular doubly" in text:
                 target = dsa["linked_list"]["types"]["circular_doubly_linked_list"]
                 if "code" in text: return "\n".join(target["sample_codes"])
@@ -109,7 +112,6 @@ def get_response(user_input):
                 if "code" in text: return "\n".join(target["sample_codes"])
                 return random.choice(target["explanations"])
                 
-            # Base linked list matches
             if "fact" in text:
                 return random.choice(dsa["linked_list"]["facts"])
             if "application" in text or "use case" in text:
@@ -144,13 +146,12 @@ def get_response(user_input):
 
     except KeyError as e:
         return f"[MATRIX SYNTAX FAULT]: Target index token path path key {e} cannot be mapped onto active .json structure."
-# Open Website Command
+
+    # Open Website Command
     if text.startswith("open "):
         site = text.replace("open ", "").strip()
-
         if "." not in site:
             site += ".com"
-
         try:
             webbrowser.open(f"https://{site}")
             return f"Opening {site}..."
@@ -164,9 +165,12 @@ class ModernDSABotApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("DSA BOT ")
+        self.title("DSA BOT")
         self.geometry("1400x800")
         self.configure(fg_color=BG_COLOR)
+        
+        # Handle Window standard 'X' close button intercept
+        self.protocol("WM_DELETE_WINDOW", self.terminate_system_pipeline)
         
         # Responsive master grid configuration
         self.grid_rowconfigure(0, weight=1)
@@ -375,7 +379,14 @@ class ModernDSABotApp(ctk.CTk):
             left_panel, text="Flush Console Buffers", font=ctk.CTkFont(family="Consolas", size=12),
             fg_color="#7F1D1D", hover_color="#991B1B", text_color=TEXT_MAIN, command=self.clear_chat_log
         )
-        clear_btn.pack(fill="x", padx=15, pady=30, side="bottom")
+        clear_btn.pack(fill="x", padx=15, pady=15, side="bottom")
+
+        # Integrated Exit Macro Button
+        close_btn = ctk.CTkButton(
+            left_panel, text="TERMINATE CONNECTION", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+            fg_color="#3F3F46", hover_color="#18181B", text_color=ACCENT_PINK, command=self.terminate_system_pipeline
+        )
+        close_btn.pack(fill="x", padx=15, pady=(0, 10), side="bottom")
 
     def handle_nav_click(self, selected_label, search_query):
         for btn in self.nav_buttons:
@@ -412,7 +423,7 @@ class ModernDSABotApp(ctk.CTk):
         input_container.grid_columnconfigure(1, weight=0)
         
         self.entry_field = ctk.CTkEntry(
-            input_container, placeholder_text="Inject matrix instruction string... (e.g., 'circular linked list explanations')",
+            input_container, placeholder_text="Inject matrix instruction string... (type 'exit' to quit)",
             font=ctk.CTkFont(family="Consolas", size=13), height=50,
             fg_color="#0F172A", border_color="#334155", text_color=TEXT_MAIN, placeholder_text_color="#475569"
         )
@@ -469,6 +480,10 @@ class ModernDSABotApp(ctk.CTk):
         response_text = get_response(query)
         self.append_chat_bubble("BOT", response_text)
         say(response_text)
+        
+        # Intercept string response to safely terminate window pipeline after displaying exit acknowledgement
+        if "[SYSTEM SHUTDOWN]" in response_text:
+            self.after(1200, self.terminate_system_pipeline)
 
     def clear_chat_log(self):
         for child in self.chat_scroll.winfo_children():
@@ -485,7 +500,6 @@ class ModernDSABotApp(ctk.CTk):
         lbl_sec = ctk.CTkLabel(right_panel, text="KNOWLEDGE MACRO TRACERS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         lbl_sec.pack(anchor="w", padx=20, pady=(20, 10))
         
-        # Interactive Macros mapped directly to distinct user data segments
         cards_data = [
             ("Bubble Sort Explanation", "What is bubble sort explanation"),
             ("Bubble Sort Code Syntax", "Bubble sort sample codes"),
@@ -518,6 +532,16 @@ class ModernDSABotApp(ctk.CTk):
     def trigger_macro_query(self, command_string):
         self.append_chat_bubble("USER", command_string)
         self.after(250, lambda: self.process_ai_reply(command_string))
+
+    # ==========================================
+    # EXPLICIT DE-INITIALIZATION SEQUENCE
+    # ==========================================
+    def terminate_system_pipeline(self):
+        """Kills interface widgets safely and flushes process memory."""
+        print("[*] Flushing active HUD mainloop threads...")
+        print("[+] Secure Matrix Connection Severed. Exiting pipeline runtime.")
+        self.quit()
+        self.destroy()
 
 
 if __name__ == "__main__":

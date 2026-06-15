@@ -11,6 +11,7 @@ A Python-based Data Structures and Algorithms (DSA) chatbot that answers questio
 * Support for multiple DSA topics
 * Randomized responses for natural conversations
 * Greeting system with multiple response variations
+* YOU can open any  website just by telling 'open "website_name"'
 
 ## Topics Covered
 
@@ -84,7 +85,7 @@ DSA-Chatbot/
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/dsa-chatbot.git
+git clone https://github.com/F-arhan2/dsa-chatbot.git
 cd dsa-chatbot
 ```
 
