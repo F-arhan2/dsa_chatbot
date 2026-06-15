@@ -1,660 +1,525 @@
-import os
-import sys
-import math
+import tkinter as tk
+import customtkinter as ctk
 import json
 import random
-import time
-import threading
-import tkinter as tk
-from tkinter import ttk
-import customtkinter as ctk
-from PIL import Image, ImageTk, ImageDraw
 import pyttsx3
-
-# Set default theme styling to dark
+import threading
+import math
+import sys
+import os
+import webbrowser
+# Set up global styling attributes for a Cyberpunk / Iron Man HUD feel
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-# -------------------------------------------------------------------------
-# TEXT TO SPEECH (Threaded & Toggleable)
-# -------------------------------------------------------------------------
-class TTSManager:
-    def __init__(self):
-        self.enabled = True
-        self._engine_lock = threading.Lock()
-        
-    def say(self, text):
-        if not self.enabled:
-            return
-        # Run speech synthesis in a background thread to prevent UI freezing
-        threading.Thread(target=self._speak_worker, args=(text,), daemon=True).start()
-
-    def _speak_worker(self, text):
-        with self._engine_lock:
-            try:
-                engine = pyttsx3.init()
-                engine.setProperty("rate", 165)
-                # Clean up some markdown-like code indicators for cleaner speech
-                clean_text = text.replace("`", "").replace("- ", "")
-                if len(clean_text) > 300:
-                    clean_text = clean_text[:300] + "... and so on."
-                engine.say(clean_text)
-                engine.runAndWait()
-            except Exception:
-                pass
-
-tts = TTSManager()
+BG_COLOR = "#0A0B10"          # Ultra dark space/cyberpunk tone
+PANEL_COLOR = "#121420"       # Translucent glass-feel background
+ACCENT_NEON = "#00F0FF"       # Cyberpunk Cyan / Neon Blue
+ACCENT_PINK = "#FF007F"       # Cyberpunk Pink / Magenta
+TEXT_MAIN = "#E2E8F0"         # Clean readable near-white text
+TEXT_MUTED = "#64748B"        # Sleek grey text
 
 # -------------------------------------------------------------------------
-# MOCK / BACKUP DATASET (If json file is missing)
+# MANDATORY FILE VALIDATION (Explicitly utilizes user provided dataset)
 # -------------------------------------------------------------------------
-DEFAULT_DATASET = {
-    "sorting": {
-        "general": {
-            "definition": ["Sorting is the process of arranging data in a specific order, typically ascending or descending."],
-            "types": ["- Bubble Sort", "- Selection Sort", "- Insertion Sort", "- Merge Sort", "- Quick Sort"]
-        },
-        "bubble_sort": {
-            "explanations": ["Bubble Sort repeatedly steps through the list, compares adjacent elements and swaps them if they are in the wrong order."],
-            "time_complexity": ["Worst Case: O(n^2)", "Average Case: O(n^2)", "Best Case: O(n)"],
-            "sample_codes": ["def bubbleSort(arr):\n    n = len(arr)\n    for i in range(n):\n        for j in range(0, n-i-1):\n            if arr[j] > arr[j+1]:\n                arr[j], arr[j+1] = arr[j+1], arr[j]"]
-        },
-        "selection_sort": {
-            "explanations": ["Selection Sort divides the input list into two parts: a sorted sublist and an unsorted sublist, repeatedly finding the minimum element."],
-            "time_complexity": ["Worst/Avg/Best Case: O(n^2)"],
-            "sample_codes": ["# Selection Sort Implementation\nfor i in range(len(A)):\n    min_idx = i\n    for j in range(i+1, len(A)):\n        if A[min_idx] > A[j]: min_idx = j\n    A[i], A[min_idx] = A[min_idx], A[i]"]
-        }
-    },
-    "array": {
-        "definition": ["An array is a collection of elements stored at contiguous memory locations."],
-        "facts": ["Arrays provide O(1) random access time by index."],
-        "applications": ["Used for implementing matrices, lookup tables, and dynamic heaps."],
-        "examples": ["Example: arr = [10, 20, 30, 40, 50]"]
-    },
-    "linked_list": {
-        "definition": ["A linked list is a linear data structure where elements are stored in nodes, and each node points to the next."],
-        "facts": ["Linked lists have dynamic sizes and ease of insertion/deletion compared to arrays."],
-        "applications": ["Used in Undo/Redo operations, OS task schedulers, and Graph adjacency lists."],
-        "advantages": ["Dynamic memory allocation; no memory wastage."],
-        "disadvantages": ["No random access allowed; extra memory required for pointer fields."],
-        "types": {
-            "singly_linked_list": {"explanations": ["Nodes only point forward to the next node."], "sample_codes": ["class Node:\n    def __init__(self, data):\n        self.data = data\n        self.next = None"]},
-            "doubly_linked_list": {"explanations": ["Nodes point both to the next node and the previous node."], "sample_codes": ["class Node:\n    def __init__(self, data):\n        self.data = data\n        self.next = None\n        self.prev = None"]},
-            "circular_linked_list": {"explanations": ["The last node points back to the first node."], "sample_codes": ["# Tail next points back to Head node\ntail.next = head"]},
-            "circular_doubly_linked_list": {"explanations": ["The nodes are doubly linked, and the tail next points to head, head prev points to tail."], "sample_codes": ["# Bi-directional circular loops"]}
-        }
-    }
-}
+DATASET_PATH = "datasets/dsa_data.json"
 
-# Load Dataset Safely
+if not os.path.exists(DATASET_PATH):
+    print(f"[-] CRITICAL CONFIGURATION ERROR: Absolute dependency missing.")
+    print(f"    The system requires '{DATASET_PATH}' to initialize.")
+    print(f"    Terminating AI Core environment setup pipeline.")
+    sys.exit(1)
+
 try:
-    if os.path.exists("datasets/dsa_data.json"):
-        with open("datasets/dsa_data.json", "r") as file:
-            dsa = json.load(file)
-    else:
-        dsa = DEFAULT_DATASET
-except Exception:
-    dsa = DEFAULT_DATASET
+    with open(DATASET_PATH, "r", encoding="utf-8") as file:
+        dsa = json.load(file)
+except Exception as e:
+    print(f"[-] CRITICAL FILE READ ERROR: '{DATASET_PATH}' failed compilation.")
+    print(f"    Details: {e}")
+    sys.exit(1)
 
-sorting = dsa.get("sorting", DEFAULT_DATASET["sorting"])
-array = dsa.get("array", DEFAULT_DATASET["array"])
-linked_list = dsa.get("linked_list", DEFAULT_DATASET["linked_list"])
+# Global TTS state tracker
+tts_enabled = True
 
-# -------------------------------------------------------------------------
-# BOT CORE LOGIC
-# -------------------------------------------------------------------------
-def detect_intent(user_input):
-    text = user_input.lower()
-    explain_keywords = ["what is", "explain", "define", "tell me", "about"]
+def say(text):
+    """Executes clean non-blocking Text-To-Speech calls."""
+    if not tts_enabled:
+        return
+    def _speak_thread():
+        try:
+            engine = pyttsx3.init()
+            engine.setProperty("rate", 165)
+            # Filter structural brackets out of speak stream to prevent robot artifacts
+            cleaned_text = str(text).split("{")[0].replace("\n", " ").replace(";", " ")
+            engine.say(cleaned_text[:150]) 
+            engine.runAndWait()
+        except Exception:
+            pass
+    threading.Thread(target=_speak_thread, daemon=True).start()
 
-    if "sorting" in text:
-        if any(word in text for word in explain_keywords): return ("dsa", "sorting", "definition")
-        if "type" in text: return ("dsa", "sorting", "types")
-        return ("dsa", "sorting", "definition")
-    elif "bubble sort" in text:
-        if "time complexity" in text: return ("dsa", "bubble_sort", "time_complexity")
-        if "code" in text: return ("dsa", "bubble_sort", "sample_code")
-        return ("dsa", "bubble_sort", "explanation")
-    elif "selection sort" in text:
-        if "time complexity" in text: return ("dsa", "selection_sort", "time_complexity")
-        if "code" in text: return ("dsa", "selection_sort", "sample_code")
-        return ("dsa", "selection_sort", "explanation")
-    elif "insertion sort" in text:
-        if "time complexity" in text: return ("dsa", "insertion_sort", "time_complexity")
-        if "code" in text: return ("dsa", "insertion_sort", "sample_code")
-        return ("dsa", "insertion_sort", "explanation")
-    elif "merge sort" in text:
-        if "time complexity" in text: return ("dsa", "merge_sort", "time_complexity")
-        if "code" in text: return ("dsa", "merge_sort", "sample_code")
-        return ("dsa", "merge_sort", "explanation")
-    elif "quick sort" in text:
-        if "time complexity" in text: return ("dsa", "quick_sort", "time_complexity")
-        if "code" in text: return ("dsa", "quick_sort", "sample_code")
-        return ("dsa", "quick_sort", "explanation")
-    elif "circular doubly linked list" in text:
-        if "code" in text: return ("dsa", "linked_list_code", "circular_doubly_linked_list")
-        return ("dsa", "linked_list", "circular_doubly_linked_list")
-    elif "circular linked list" in text:
-        if "code" in text: return ("dsa", "linked_list_code", "circular_linked_list")
-        return ("dsa", "linked_list", "circular_linked_list")
-    elif "doubly linked list" in text:
-        if "code" in text: return ("dsa", "linked_list_code", "doubly_linked_list")
-        return ("dsa", "linked_list", "doubly_linked_list")
-    elif "singly linked list" in text:
-        if "code" in text: return ("dsa", "linked_list_code", "singly_linked_list")
-        return ("dsa", "linked_list", "singly_linked_list")
-    elif "linked list" in text:
-        if "fact" in text: return ("dsa", "linked_list", "facts")
-        if "application" in text: return ("dsa", "linked_list", "applications")
-        if "advantage" in text: return ("dsa", "linked_list", "advantages")
-        if "disadvantage" in text: return ("dsa", "linked_list", "disadvantages")
-        if "type" in text: return ("dsa", "linked_list", "types")
-        return ("dsa", "linked_list", "definition")
-    elif "array" in text:
-        if "fact" in text: return ("dsa", "array", "facts")
-        if "application" in text: return ("dsa", "array", "applications")
-        if "example" in text: return ("dsa", "array", "examples")
-        return ("dsa", "array", "definition")
-    return ("unknown", "unknown", "unknown")
-
-def generate_text(intent):
-    main_domain, topic, subtopic = intent
-    if main_domain == "dsa":
-        if topic == "sorting":
-            if subtopic == "definition": return random.choice(sorting["general"]["definition"])
-            if subtopic == "types": return "\n".join(sorting["general"]["types"])
-        elif topic in sorting:
-            if subtopic == "explanation": return random.choice(sorting[topic]["explanations"])
-            if subtopic == "time_complexity": return "\n".join(sorting[topic]["time_complexity"])
-            if subtopic == "sample_code": return "\n".join(sorting[topic]["sample_codes"])
-        elif topic == "array":
-            if subtopic == "definition": return random.choice(array["definition"])
-            if subtopic == "facts": return random.choice(array["facts"])
-            if subtopic == "applications": return random.choice(array["applications"])
-            if subtopic == "examples": return random.choice(array["examples"])
-        elif topic == "linked_list":
-            if subtopic == "definition": return random.choice(linked_list["definition"])
-            if subtopic == "facts": return random.choice(linked_list["facts"])
-            if subtopic == "applications": return random.choice(linked_list["applications"])
-            if subtopic == "advantages": return random.choice(linked_list["advantages"])
-            if subtopic == "disadvantages": return random.choice(linked_list["disadvantages"])
-            if subtopic == "types":
-                return "Types of Linked Lists:\n- Singly Linked List\n- Doubly Linked List\n- Circular Linked List\n- Circular Doubly Linked List"
-            elif subtopic in linked_list.get("types", {}):
-                return random.choice(linked_list["types"][subtopic]["explanations"])
-        elif topic == "linked_list_code":
-            if subtopic in linked_list.get("types", {}):
-                return "\n".join(linked_list["types"][subtopic]["sample_codes"])
-    return random.choice([
-        "I don't know about that topic yet.",
-        "Try asking about Sorting, Arrays or Linked Lists.",
-        "My dataset doesn't contain that specific request layout."
-    ])
-
-# -------------------------------------------------------------------------
-# CYBERPUNK / HUD COMPONENT INTERFACES
-# -------------------------------------------------------------------------
-class StarfieldCanvas(tk.Canvas):
-    """An efficient animated 2D pipeline displaying an expansive warp field background."""
-    def __init__(self, parent, **kwargs):
-        super().__init__(parent, highlightthickness=0, **kwargs)
-        self.stars = []
-        self.num_stars = 75
-        self.bind("<Configure>", self.on_resize)
-        self.animation_running = True
+def get_response(user_input):
+    """Processes natural language keyword strings and maps directly onto the user's JSON keys."""
+    text = user_input.lower().strip()
+    
+    try:
         
-    def on_resize(self, event):
-        self.width = event.width
-        self.height = event.height
-        self.init_stars()
-        
-    def init_stars(self):
-        self.stars = []
-        for _ in range(self.num_stars):
-            self.stars.append({
-                'x': random.uniform(-self.width/2, self.width/2),
-                'y': random.uniform(-self.height/2, self.height/2),
-                'z': random.uniform(1, self.width),
-                'color': random.choice(["#00f0ff", "#ff007f", "#ffffff", "#7000ff"])
-            })
+        # Greetings Match
+        if text in ["hi", "hello", "hey"]:
+            return random.choice(dsa["greeting_data"]["hello"])
+        if text in ["good morning", "gm"]:
+            return random.choice(dsa["greeting_data"]["good_morning"])
+        if text in ["good afternoon", "ga"]:
+            return random.choice(dsa["greeting_data"]["good_afternoon"])
+        if text in ["good evening", "ge"]:
+            return random.choice(dsa["greeting_data"]["good_evening"])
 
-    def animate(self):
-        if not self.animation_running or not hasattr(self, 'width'):
-            if self.winfo_exists():
-                self.after(30, self.animate)
-            return
-            
-        self.delete("all")
-        # Draw tech matrix floor grid accent lines
-        self.create_line(0, self.height*0.85, self.width, self.height*0.85, fill="#003344", width=1)
-        
-        cx, cy = self.width / 2, self.height / 2
-        for s in self.stars:
-            s['z'] -= 4
-            if s['z'] <= 0:
-                s['z'] = self.width
-                s['x'] = random.uniform(-self.width/2, self.width/2)
-                s['y'] = random.uniform(-self.height/2, self.height/2)
+        # Sorting Sub-matrix Matches
+        if any(word in text for word in ["what is sorting", "define sorting", "explain sorting", "tell me about sorting"]):
+            return random.choice(dsa["sorting"]["general"]["definition"])
+        if "types of sorting" in text or "sorting types" in text:
+            return "Available matrix algorithms:\n" + "\n".join([f" • {item}" for item in dsa["sorting"]["general"]["types"]])
 
-            # Perspective projection calculation
-            k = 400.0 / s['z']
-            px = int(s['x'] * k + cx)
-            py = int(s['y'] * k + cy)
+        # Dynamic Extraction Map Helper for Sorting Techniques
+        for algo in ["bubble_sort", "selection_sort", "insertion_sort", "merge_sort", "quick_sort"]:
+            readable_algo = algo.replace("_", " ")
+            if readable_algo in text:
+                if "complexity" in text or "time" in text:
+                    return f"[{readable_algo.upper()} TIME SCALES]:\n" + "\n".join(dsa["sorting"][algo]["time_complexity"])
+                if "code" in text or "syntax" in text or "program" in text:
+                    return f"// {readable_algo.upper()} STRUCTURAL IMPLEMENTATION:\n" + "\n".join(dsa["sorting"][algo]["sample_codes"])
+                return random.choice(dsa["sorting"][algo]["explanations"])
 
-            if 0 <= px < self.width and 0 <= py < self.height:
-                size = max(1, int((1 - s['z']/self.width) * 5))
-                self.create_oval(px, py, px+size, py+size, fill=s['color'], outline="")
+        # Linked List Variant Parsers (Deep Nesting Parsing)
+        if "linked list" in text or "node list" in text:
+            # Check detailed specific variant models first
+            if "circular doubly" in text:
+                target = dsa["linked_list"]["types"]["circular_doubly_linked_list"]
+                if "code" in text: return "\n".join(target["sample_codes"])
+                return random.choice(target["explanations"])
+            if "circular" in text:
+                target = dsa["linked_list"]["types"]["circular_linked_list"]
+                if "code" in text: return "\n".join(target["sample_codes"])
+                return random.choice(target["explanations"])
+            if "doubly" in text:
+                target = dsa["linked_list"]["types"]["doubly_linked_list"]
+                if "code" in text: return "\n".join(target["sample_codes"])
+                return random.choice(target["explanations"])
+            if "singly" in text:
+                target = dsa["linked_list"]["types"]["singly_linked_list"]
+                if "code" in text: return "\n".join(target["sample_codes"])
+                return random.choice(target["explanations"])
                 
-        if self.winfo_exists():
-            self.after(25, self.animate)
+            # Base linked list matches
+            if "fact" in text:
+                return random.choice(dsa["linked_list"]["facts"])
+            if "application" in text or "use case" in text:
+                return "Linked List real-world matrices:\n" + "\n".join([f" -> {item}" for item in dsa["linked_list"]["applications"]])
+            if "advantage" in text:
+                return "PROSECUTION ADVANTAGES:\n" + "\n".join([f" [+] {item}" for item in dsa["linked_list"]["advantages"]])
+            if "disadvantage" in text or "flaw" in text:
+                return "SYSTEM LIMITATIONS:\n" + "\n".join([f" [-] {item}" for item in dsa["linked_list"]["disadvantages"]])
+            return random.choice(dsa["linked_list"]["definition"])
 
-class HologramRingCanvas(tk.Canvas):
-    """Renders a complex rotating 3D vector-ring system with pulsing HUD arcs."""
-    def __init__(self, parent, **kwargs):
-        super().__init__(parent, highlightthickness=0, **kwargs)
-        self.angle = 0
-        self.pulse = 0
-        self.bind("<Configure>", lambda e: self.draw())
-        
-    def draw(self):
-        self.delete("all")
-        w, h = self.winfo_width(), self.winfo_height()
-        if w < 10 or h < 10: return
-        cx, cy = w // 2, h // 2
-        
-        radius = min(w, h) // 3
-        pulse_offset = math.sin(self.pulse) * 8
-        r_final = radius + pulse_offset
-        
-        # Draw nested procedural technology circles
-        self.create_oval(cx - r_final, cy - r_final, cx + r_final, cy + r_final, outline="#00f0ff", width=2)
-        self.create_oval(cx - r_final + 15, cy - r_final + 15, cx + r_final - 15, cy + r_final - 15, outline="#7000ff", width=1, dash=(10, 10))
-        self.create_oval(cx - r_final - 10, cy - r_final - 10, cx + r_final + 10, cy + r_final + 10, outline="#005577", width=1)
+        # Linear Array Matches
+        if "array" in text:
+            if "fact" in text:
+                return random.choice(dsa["array"]["facts"])
+            if "application" in text or "use" in text:
+                return "Array allocations:\n" + "\n".join([f" • {item}" for item in dsa["array"]["applications"]])
+            if "example" in text:
+                return "Matrix instance sample: " + random.choice(dsa["array"]["examples"])
+            return random.choice(dsa["array"]["definition"])
 
-        # Dynamic rotating segments
-        for i in range(4):
-            cur_angle = self.angle + (i * 90)
-            rad1 = math.radians(cur_angle)
-            rad2 = math.radians(cur_angle + 35)
-            
-            x1, y1 = cx + (r_final + 5) * math.cos(rad1), cy + (r_final + 5) * math.sin(rad1)
-            x2, y2 = cx + (r_final + 5) * math.cos(rad2), cy + (r_final + 5) * math.sin(rad2)
-            self.create_line(x1, y1, x2, y2, fill="#ff007f", width=4)
-            
-        # Geometric cross-hairs
-        self.create_line(cx - 20, cy, cx + 20, cy, fill="#00f0ff", width=1)
-        self.create_line(cx, cy - 20, cx, cy + 20, fill="#00f0ff", width=1)
+        # Dynamic Operations Framework Matches
+        if "operation" in text or "actions" in text:
+            return "Supported Matrix Mutations:\n- Insertion Tasks\n- Deletion Tasks\n- Traversal\n- Searching Routines"
+        if "insertion" in text:
+            return "Insertion Protocols:\n" + "\n".join([f" * {item}" for item in dsa["operations"]["insertion"]])
+        if "deletion" in text:
+            return "Deletion Protocols:\n" + "\n".join([f" * {item}" for item in dsa["operations"]["deletion"]])
+        if "traversal" in text:
+            return "\n".join(dsa["operations"]["traversal"])
+        if "search" in text:
+            return "\n".join(dsa["operations"]["searching"])
 
-    def update_anim(self):
-        self.angle = (self.angle + 3) % 360
-        self.pulse += 0.1
-        self.draw()
-        if self.winfo_exists():
-            self.after(30, self.update_anim)
+    except KeyError as e:
+        return f"[MATRIX SYNTAX FAULT]: Target index token path path key {e} cannot be mapped onto active .json structure."
+# Open Website Command
+    if text.startswith("open "):
+        site = text.replace("open ", "").strip()
 
-# -------------------------------------------------------------------------
-# MAIN CORE CONTAINER INTERFACE
-# -------------------------------------------------------------------------
-class DSABotApp(ctk.CTk):
+        if "." not in site:
+            site += ".com"
+
+        try:
+            webbrowser.open(f"https://{site}")
+            return f"Opening {site}..."
+        except Exception:
+            return f"Unable to open {site}."
+
+    return "System unable to resolve keyword. Query target data categories: [Sorting, Arrays, Linked Lists, Operations]."
+
+
+class ModernDSABotApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("DSA AI CORE CHATBOT")
+        self.title("DSA BOT ")
         self.geometry("1400x800")
-        self.configure(fg_color="#0a0a12")
+        self.configure(fg_color=BG_COLOR)
         
-        # Main Layout Reference State Variables
-        self.current_filter_category = "all"
-        self.is_ready = False
+        # Responsive master grid configuration
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
         
-        # Build System Splash Layer View Overlay
-        self.build_splash_screen()
+        self.splash_frame = None
+        self.main_container = None
+        
+        # Deploy futuristic splash screen instantly
+        self.init_splash_screen()
 
-    # -------------------------------------------------------------------------
-    # ANIMATED SPLASH VIEW LAYER
-    # -------------------------------------------------------------------------
-    def build_splash_screen(self):
-        self.splash_frame = ctk.CTkFrame(self, fg_color="#06060c")
-        self.splash_frame.pack(fill="both", expand=True)
+    # ==========================================
+    # STARTUP EXPERIENCE (SPLASH MODULE)
+    # ==========================================
+    def init_splash_screen(self):
+        self.splash_frame = ctk.CTkFrame(self, fg_color=BG_COLOR, corner_radius=0)
+        self.splash_frame.grid(row=0, column=0, sticky="nsew")
         
-        # Layering Starfield Component inside Splash Layout Frame
-        self.splash_stars = StarfieldCanvas(self.splash_frame, bg="#06060c")
-        self.splash_stars.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.splash_canvas = tk.Canvas(self.splash_frame, bg=BG_COLOR, highlightthickness=0)
+        self.splash_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
         
-        # Tech Frame Holder Container
-        self.ring_container = ctk.CTkFrame(self.splash_frame, width=300, height=300, fg_color="transparent")
-        self.ring_container.place(relx=0.5, rely=0.4, anchor="center")
-        
-        self.holo_ring = HologramRingCanvas(self.ring_container, bg="#06060c")
-        self.holo_ring.pack(fill="both", expand=True)
-        
-        # Central HUD Overlay Text Strings
+        # Generate floating background vector particles
+        self.particles = []
+        for _ in range(40):
+            self.particles.append({
+                "x": random.randint(100, 1300),
+                "y": random.randint(100, 700),
+                "radius": random.randint(2, 5),
+                "dx": random.uniform(-1.2, 1.2),
+                "dy": random.uniform(-1.2, 1.2),
+                "color": random.choice([ACCENT_NEON, ACCENT_PINK, "#2563EB"])
+            })
+            
         self.logo_label = ctk.CTkLabel(
-            self.splash_frame, text="DSA BOT", 
-            font=ctk.CTkFont(family="Courier New", size=54, weight="bold"),
-            text_color="#00f0ff"
+            self.splash_frame, text="DSA BOT", font=ctk.CTkFont(family="Consolas", size=76, weight="bold"),
+            text_color=ACCENT_NEON
         )
         self.logo_label.place(relx=0.5, rely=0.4, anchor="center")
         
         self.status_label = ctk.CTkLabel(
-            self.splash_frame, text="BOOT SEQUENCER STARTING...", 
-            font=ctk.CTkFont(family="Courier New", size=16),
-            text_color="#ff007f"
+            self.splash_frame, text="Initializing Cybernetic Hub Framework...", font=ctk.CTkFont(family="Consolas", size=15),
+            text_color=TEXT_MUTED
         )
-        self.status_label.place(relx=0.5, rely=0.68, anchor="center")
+        self.status_label.place(relx=0.5, rely=0.55, anchor="center")
         
-        # Progress Metric Segment Component Bar
-        self.pbar = ctk.CTkProgressBar(self.splash_frame, width=450, height=6, fg_color="#111122", progress_color="#00f0ff")
-        self.pbar.set(0)
-        self.pbar.place(relx=0.5, rely=0.74, anchor="center")
+        self.progress_bar = ctk.CTkProgressBar(
+            self.splash_frame, width=420, height=6, fg_color="#1E293B", progress_color=ACCENT_PINK
+        )
+        self.progress_bar.place(relx=0.5, rely=0.6, anchor="center")
+        self.progress_bar.set(0)
         
-        # Start Engine Runtime Background Animations Loops
-        self.splash_stars.animate()
-        self.holo_ring.update_anim()
+        self.ring_angle = 0
+        self.animate_splash_canvas()
         
-        # Fire background Initialization Thread Sequencer Sequence Routine Task
-        threading.Thread(target=self.run_initialization_sequence, daemon=True).start()
+        # Sequential multi-staged timing injection tracking bar values
+        self.after(700, lambda: self.update_splash_stage("Parsing Verified datasets/dsa_data.json Structures...", 0.25))
+        self.after(1500, lambda: self.update_splash_stage("Compiling Array, Sorting, and Pointer Vectors...", 0.65))
+        self.after(2400, lambda: self.update_splash_stage("Booting HUD Dashboard Core Controls...", 0.90))
+        self.after(3100, lambda: self.update_splash_stage("Secure Connection Established: Ready", 1.0))
+        self.after(3600, self.transition_to_dashboard)
 
-    def run_initialization_sequence(self):
-        steps = [
-            (0.15, "INITIALIZING AI CORE...", "System online."),
-            (0.40, "ESTABLISHING NEURAL LINK CONNECTORS...", "Data stream synchronized."),
-            (0.65, "LOADING DSA KNOWLEDGE DATASETS...", "Structures parsed successfully."),
-            (0.85, "GENERATING PROCEDURAL HUD UI ENVIRONMENT...", "All engines ready."),
-            (1.00, "READY", "Welcome commander.")
-        ]
-        
-        # Sound voice indicator cue trigger simulated
-        tts.say("DSA system initialization sequence activated.")
-        
-        for progress, status_text, audio_cue in steps:
-            time.sleep(random.uniform(0.6, 1.0))
-            self.update_splash_ui(progress, status_text)
+    def animate_splash_canvas(self):
+        if not self.splash_frame or not self.splash_frame.winfo_exists():
+            return
             
-        time.sleep(0.4)
-        self.after(0, self.transition_to_dashboard)
+        self.splash_canvas.delete("all")
+        w = self.splash_canvas.winfo_width()
+        h = self.splash_canvas.winfo_height()
+        if w < 10: w, h = 1400, 800
+        
+        for p in self.particles:
+            p["x"] += p["dx"]
+            p["y"] += p["dy"]
+            if p["x"] < 0 or p["x"] > w: p["dx"] *= -1
+            if p["y"] < 0 or p["y"] > h: p["dy"] *= -1
+            
+            self.splash_canvas.create_oval(
+                p["x"]-p["radius"], p["y"]-p["radius"], 
+                p["x"]+p["radius"], p["y"]+p["radius"], 
+                fill=p["color"], outline=""
+            )
+            
+        self.ring_angle += 0.05
+        r = 135
+        cx, cy = w / 2, h / 0.415
+        
+        x1 = cx + r * math.cos(self.ring_angle)
+        y1 = cy + r * math.sin(self.ring_angle)
+        x2 = cx + r * math.cos(self.ring_angle + math.pi*0.6)
+        y2 = cy + r * math.sin(self.ring_angle + math.pi*0.6)
+        self.splash_canvas.create_line(x1, y1, x2, y2, fill=ACCENT_NEON, width=2)
+        
+        x3 = cx + r * math.cos(self.ring_angle + math.pi)
+        y3 = cy + r * math.sin(self.ring_angle + math.pi)
+        x4 = cx + r * math.cos(self.ring_angle + math.pi * 1.6)
+        y4 = cy + r * math.sin(self.ring_angle + math.pi * 1.6)
+        self.splash_canvas.create_line(x3, y3, x4, y4, fill=ACCENT_PINK, width=2)
+        
+        self.after(16, self.animate_splash_canvas)
 
-    def update_splash_ui(self, progress, text):
-        self.after(0, lambda: self.pbar.set(progress))
-        self.after(0, lambda: self.status_label.configure(text=text))
+    def update_splash_stage(self, text, val):
+        if self.status_label.winfo_exists():
+            self.status_label.configure(text=text)
+            self.progress_bar.set(val)
 
     def transition_to_dashboard(self):
-        # Shutting Down Splash Animations Canvas Frames Cleanly
-        self.splash_stars.animation_running = False
-        self.splash_frame.destroy()
-        
-        # Fire Application Interface Initialization Construction Layout Core
-        self.build_main_dashboard()
-        tts.say("System operational. Welcome.")
+        if self.splash_frame:
+            self.splash_frame.destroy()
+            self.splash_frame = None
+        self.build_main_ui()
 
-    # -------------------------------------------------------------------------
-    # MAIN APPLICATION HUD DASHBOARD ARCHITECTURE VIEW
-    # -------------------------------------------------------------------------
-    def build_main_dashboard(self):
-        self.is_ready = True
+    # ==========================================
+    # MAIN UI DASHBOARD COMPOSER
+    # ==========================================
+    def build_main_ui(self):
+        self.main_container = ctk.CTkFrame(self, fg_color=BG_COLOR, corner_radius=0)
+        self.main_container.grid(row=0, column=0, sticky="nsew")
         
-        # Outer Base Layer Matrix Background
-        self.bg_canvas = StarfieldCanvas(self, bg="#080810")
-        self.bg_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
-        self.bg_canvas.animate()
+        self.main_container.grid_rowconfigure(1, weight=1)
+        self.main_container.grid_columnconfigure(0, weight=1) # Nav Left Panel
+        self.main_container.grid_columnconfigure(1, weight=4) # Chat Engine Center Panel
+        self.main_container.grid_columnconfigure(2, weight=2) # Macros Panel Right
         
-        # Create Main Application Scaffold Structured Frame Containers Layout Grid Maps
-        self.create_top_bar()
+        self.build_top_bar()
+        self.build_left_panel()
+        self.build_center_panel()
+        self.build_right_panel()
         
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.place(relx=0, rely=0.08, relwidth=1, relheight=0.92)
-        
-        self.create_left_panel()
-        self.create_center_chat_panel()
-        self.create_right_panel()
+        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "AI Frame synchronized with datasets/dsa_data.json configuration node. Diagnostic loops running clean."))
 
-    # -------------------------------------------------------------------------
-    # TOP HEADER PANEL SECTION
-    # -------------------------------------------------------------------------
-    def create_top_bar(self):
-        self.top_bar = ctk.CTkFrame(self, height=65, fg_color="#0c0c1a", border_width=1, border_color="#00f0ff")
-        self.top_bar.place(relx=0, rely=0, relwidth=1)
+    # ==========================================
+    # TOP METRICS HEADER BLOCK
+    # ==========================================
+    def build_top_bar(self):
+        top_bar = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, height=60, corner_radius=0, border_width=1, border_color="#1E293B")
+        top_bar.grid(row=0, column=0, columnspan=3, sticky="ew")
+        top_bar.grid_propagate(False)
         
-        title_lbl = ctk.CTkLabel(
-            self.top_bar, text="🤖 DSA AI QUANTUM ASSISTANT // HUD_v2.6", 
-            font=ctk.CTkFont(family="Courier New", size=20, weight="bold"),
-            text_color="#00f0ff"
-        )
-        title_lbl.place(relx=0.02, rely=0.5, anchor="w")
+        title_lbl = ctk.CTkLabel(top_bar, text="▲ DSA Chat TERMINAL", font=ctk.CTkFont(family="Consolas", size=16, weight="bold"), text_color=TEXT_MAIN)
+        title_lbl.pack(side="left", padx=25, pady=15)
         
-        # Pulse Ambient Connection Core Indicator
-        self.pulse_frame = ctk.CTkFrame(self.top_bar, width=14, height=14, corner_radius=7, fg_color="#00ff66")
-        self.pulse_frame.place(relx=0.88, rely=0.5, anchor="center")
+        self.status_container = ctk.CTkFrame(top_bar, fg_color="transparent")
+        self.status_container.pack(side="right", padx=25, pady=15)
         
-        self.status_str_lbl = ctk.CTkLabel(
-            self.top_bar, text="SYSTEM: ONLINE", 
-            font=ctk.CTkFont(family="Courier New", size=13, weight="bold"),
-            text_color="#00ff66"
-        )
-        self.status_str_lbl.place(relx=0.9, rely=0.5, anchor="w")
+        self.pulse_dot = ctk.CTkLabel(self.status_container, text="●", font=ctk.CTkFont(size=18), text_color="#10B981")
+        self.pulse_dot.pack(side="left", padx=5)
         
-        self.animate_status_pulse(0)
+        self.status_txt = ctk.CTkLabel(self.status_container, text="CORE COMPILATION STATUS: ONLINE", font=ctk.CTkFont(family="Consolas", size=12), text_color="#10B981")
+        self.status_txt.pack(side="left", padx=5)
+        
+        self.pulse_state = True
+        self.toggle_status_pulse()
 
-    def animate_status_pulse(self, step):
-        if not self.is_ready or not self.pulse_frame.winfo_exists(): return
-        alpha = (math.sin(step) + 1) / 2
-        green_intensity = int(150 + (105 * alpha))
-        color = f"#00{green_intensity:02x}44"
-        self.pulse_frame.configure(fg_color="#00ff66" if alpha > 0.4 else "#005522")
-        self.after(120, lambda: self.animate_status_pulse(step + 0.25))
+    def toggle_status_pulse(self):
+        if hasattr(self, 'pulse_dot') and self.pulse_dot.winfo_exists():
+            self.pulse_state = not self.pulse_state
+            color = "#10B981" if self.pulse_state else "#047857"
+            self.pulse_dot.configure(text_color=color)
+            self.after(750, self.toggle_status_pulse)
 
-    # -------------------------------------------------------------------------
-    # LEFT PANEL NAVIGATION ELEMENTS
-    # -------------------------------------------------------------------------
-    def create_left_panel(self):
-        self.left_panel = ctk.CTkFrame(self.main_container, width=240, fg_color="#090915", border_width=1, border_color="#7000ff")
-        self.left_panel.place(relx=0, rely=0, relwidth=0.17, relheight=1)
+    # ==========================================
+    # LEFT PANEL MODULE (NAV CONTROLLERS)
+    # ==========================================
+    def build_left_panel(self):
+        left_panel = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, corner_radius=0, border_width=1, border_color="#1E293B")
+        left_panel.grid(row=1, column=0, sticky="nsew", padx=(0,1), pady=(1,0))
         
-        lbl_nav = ctk.CTkLabel(
-            self.left_panel, text="CORE MODULES", 
-            font=ctk.CTkFont(family="Courier New", size=14, weight="bold"), text_color="#ff007f"
-        )
-        lbl_nav.pack(pady=20, anchor="w", padx=20)
+        lbl_sec = ctk.CTkLabel(left_panel, text="TERMINAL SUB-SECTIONS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        lbl_sec.pack(anchor="w", padx=20, pady=(20, 15))
         
-        modules = [
-            ("📊 Dashboard", "all"),
-            ("🔄 Sorting", "sorting"),
-            ("🔢 Arrays", "array"),
-            ("🔗 Linked Lists", "linked_list"),
+        # Core Navigation targets
+        nav_items = [
+            ("Dashboard Cluster", "hello"),
+            ("Sorting Matrix", "types of sorting"),
+            ("Linear Arrays", "array allocation definition"),
+            ("Linked Nodes", "linked list definition")
         ]
+        self.nav_buttons = []
         
-        self.nav_buttons = {}
-        for text, category in modules:
+        for idx, (label, query) in enumerate(nav_items):
+            is_selected = (idx == 0)
             btn = ctk.CTkButton(
-                self.left_panel, text=text, font=ctk.CTkFont(family="Courier New", size=14),
-                height=45, fg_color="transparent", text_color="#ffffff", anchor="w",
-                hover_color="#1a1a3a", border_width=1, border_color="#222244",
-                command=lambda c=category: self.filter_knowledge_cards(c)
+                left_panel, text=label, anchor="w", height=45,
+                font=ctk.CTkFont(family="Consolas", size=13),
+                fg_color="#1E293B" if is_selected else "transparent",
+                text_color=ACCENT_NEON if is_selected else TEXT_MAIN,
+                border_width=1 if is_selected else 0,
+                border_color=ACCENT_NEON,
+                hover_color="#1E293B",
+                command=lambda l=label, q=query: self.handle_nav_click(l, q)
             )
-            btn.pack(fill="x", padx=15, pady=8)
-            self.nav_buttons[category] = btn
+            btn.pack(fill="x", padx=15, pady=6)
+            self.nav_buttons.append(btn)
             
-        self.filter_knowledge_cards("all")
+        sys_lbl = ctk.CTkLabel(left_panel, text="PERIPHERAL CHANNELS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        sys_lbl.pack(anchor="w", padx=20, pady=(40, 10))
         
-        # Audio Engine Control Mechanism Toggle System Widget Block
-        self.tts_toggle = ctk.CTkCheckBox(
-            self.left_panel, text="AI VOICE HARNESS", font=ctk.CTkFont(family="Courier New", size=11),
-            text_color="#00f0ff", fg_color="#00f0ff", hover_color="#00a0cc",
-            command=self.toggle_voice_engine
+        self.tts_switch = ctk.CTkSwitch(
+            left_panel, text="Vocalize Matrix Streams", font=ctk.CTkFont(family="Consolas", size=12),
+            text_color=TEXT_MAIN, progress_color=ACCENT_NEON, command=self.toggle_tts
         )
-        self.tts_toggle.select()
-        self.tts_toggle.pack(side="bottom", fill="x", padx=20, pady=30)
-
-    def toggle_voice_engine(self):
-        tts.enabled = bool(self.tts_toggle.get())
-
-    def filter_knowledge_cards(self, category):
-        self.current_filter_category = category
-        for cat, btn in self.nav_buttons.items():
-            if cat == category:
-                btn.configure(fg_color="#7000ff", border_color="#00f0ff", text_color="#ffffff")
-            else:
-                btn.configure(fg_color="transparent", border_color="#222244", text_color="#b0b0d0")
-                
-        if hasattr(self, 'right_panel') and self.right_panel.winfo_exists():
-            self.render_knowledge_quick_cards()
-
-    # -------------------------------------------------------------------------
-    # CENTRAL TERMINAL SYSTEM (CHAT INTERFACE VIEW)
-    # -------------------------------------------------------------------------
-    def create_center_chat_panel(self):
-        self.center_panel = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        self.center_panel.place(relx=0.17, rely=0, relwidth=0.60, relheight=1)
-        
-        # Scrollable Layout Space View Area Configuration
-        self.chat_display = ctk.CTkScrollableFrame(
-            self.center_panel, fg_color="#070712", 
-            border_width=1, border_color="#00f0ff"
-        )
-        self.chat_display.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.82)
-        
-        # Footer Action Field Prompt Matrix Area Block Frame
-        self.input_frame = ctk.CTkFrame(self.center_panel, fg_color="transparent")
-        self.input_frame.place(relx=0.02, rely=0.87, relwidth=0.96, relheight=0.10)
-        
-        self.entry_field = ctk.CTkEntry(
-            self.input_frame, placeholder_text="Execute secure natural language query...",
-            font=ctk.CTkFont(family="Courier New", size=14),
-            fg_color="#0c0c1f", border_color="#7000ff", text_color="#ffffff",
-            placeholder_text_color="#555577"
-        )
-        self.entry_field.place(relx=0, rely=0, relwidth=0.76, relheight=0.8)
-        self.entry_field.bind("<Return>", lambda event: self.process_user_message())
-        
-        send_btn = ctk.CTkButton(
-            self.input_frame, text="TRANSMIT >>", font=ctk.CTkFont(family="Courier New", size=13, weight="bold"),
-            fg_color="#00f0ff", text_color="#000000", hover_color="#ff007f",
-            command=self.process_user_message
-        )
-        send_btn.place(relx=0.78, rely=0, relwidth=0.11, relheight=0.8)
+        self.tts_switch.pack(anchor="w", padx=20, pady=10)
+        self.tts_switch.select()
         
         clear_btn = ctk.CTkButton(
-            self.input_frame, text="CLR LOG", font=ctk.CTkFont(family="Courier New", size=13, weight="bold"),
-            fg_color="#221133", text_color="#ff007f", hover_color="#441122", border_width=1, border_color="#ff007f",
-            command=self.clear_chat_logs
+            left_panel, text="Flush Console Buffers", font=ctk.CTkFont(family="Consolas", size=12),
+            fg_color="#7F1D1D", hover_color="#991B1B", text_color=TEXT_MAIN, command=self.clear_chat_log
         )
-        clear_btn.place(relx=0.90, rely=0, relwidth=0.10, relheight=0.8)
-        
-        self.render_system_bubble("AI Assistant Node Initialized. Target telemetry items to review specifications.")
+        clear_btn.pack(fill="x", padx=15, pady=30, side="bottom")
 
-    def render_user_bubble(self, phrase_string):
-        bubble = ctk.CTkFrame(self.chat_display, fg_color="#161633", border_width=1, border_color="#7000ff")
-        bubble.pack(anchor="e", padx=10, pady=6, fill="x", expand=True)
+    def handle_nav_click(self, selected_label, search_query):
+        for btn in self.nav_buttons:
+            if btn.cget("text") == selected_label:
+                btn.configure(fg_color="#1E293B", text_color=ACCENT_NEON, border_width=1, border_color=ACCENT_NEON)
+                self.append_chat_bubble("USER", f"Terminal Focus Route -> {selected_label}")
+                self.process_ai_reply(search_query)
+            else:
+                btn.configure(fg_color="transparent", text_color=TEXT_MAIN, border_width=0)
+
+    def toggle_tts(self):
+        global tts_enabled
+        tts_enabled = bool(self.tts_switch.get())
+
+    # ==========================================
+    # CENTER PANEL MODULE (CHAT MATRIX CORES)
+    # ==========================================
+    def build_center_panel(self):
+        center_panel = ctk.CTkFrame(self.main_container, fg_color="transparent", corner_radius=0)
+        center_panel.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
         
-        lbl = ctk.CTkLabel(
-            bubble, text=f"USER // {phrase_string}", font=ctk.CTkFont(family="Courier New", size=13),
-            text_color="#00f0ff", justify="left", anchor="w", wraplength=550
+        center_panel.grid_rowconfigure(0, weight=1)
+        center_panel.grid_rowconfigure(1, weight=0)
+        center_panel.grid_columnconfigure(0, weight=1)
+        
+        self.chat_scroll = ctk.CTkScrollableFrame(
+            center_panel, fg_color=PANEL_COLOR, border_width=1, border_color="#1E293B"
         )
-        lbl.pack(padx=15, pady=10, fill="x")
-        self.smooth_scroll_to_bottom()
-
-    def render_system_bubble(self, message_body):
-        bubble = ctk.CTkFrame(self.chat_display, fg_color="#0b1c24", border_width=1, border_color="#00ff66")
-        bubble.pack(anchor="w", padx=10, pady=6, fill="x", expand=True)
+        self.chat_scroll.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
-        lbl = ctk.CTkLabel(
-            bubble, text=f"BOT_RESPONSE //\n\n{message_body}", font=ctk.CTkFont(family="Courier New", size=13),
-            text_color="#ffffff", justify="left", anchor="w", wraplength=550
+        input_container = ctk.CTkFrame(center_panel, fg_color="transparent")
+        input_container.grid(row=1, column=0, sticky="ew", padx=5, pady=10)
+        input_container.grid_columnconfigure(0, weight=1)
+        input_container.grid_columnconfigure(1, weight=0)
+        
+        self.entry_field = ctk.CTkEntry(
+            input_container, placeholder_text="Inject matrix instruction string... (e.g., 'circular linked list explanations')",
+            font=ctk.CTkFont(family="Consolas", size=13), height=50,
+            fg_color="#0F172A", border_color="#334155", text_color=TEXT_MAIN, placeholder_text_color="#475569"
         )
-        lbl.pack(padx=15, pady=10, fill="x")
-        self.smooth_scroll_to_bottom()
-
-    def smooth_scroll_to_bottom(self):
-        self.chat_display._parent_canvas.yview_moveto(1.0)
-
-    def clear_chat_logs(self):
-        for widget in self.chat_display.winfo_children():
-            widget.destroy()
-        self.render_system_bubble("Core buffers cleared. System standing by.")
-
-    def process_user_message(self, explicit_prompt=None):
-        query = explicit_prompt if explicit_prompt else self.entry_field.get().strip()
-        if not query: return
+        self.entry_field.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.entry_field.bind("<Return>", lambda event: self.submit_user_message())
         
-        if not explicit_prompt:
-            self.entry_field.delete(0, tk.END)
-            
-        self.render_user_bubble(query)
-        
-        # Emulate processing pipeline layout block delay via a smooth generator
-        intent = detect_intent(query)
-        resolved_response = generate_text(intent)
-        
-        self.after(300, lambda: self.render_system_bubble(resolved_response))
-        self.after(350, lambda: tts.say(resolved_response))
-
-    # -------------------------------------------------------------------------
-    # RIGHT SIDEBAR PANEL - KNOWLEDGE DATABANK
-    # -------------------------------------------------------------------------
-    def create_right_panel(self):
-        self.right_panel = ctk.CTkFrame(self.main_container, fg_color="#090915", border_width=1, border_color="#7000ff")
-        self.right_panel.place(relx=0.77, rely=0, relwidth=0.23, relheight=1)
-        
-        lbl_deck = ctk.CTkLabel(
-            self.right_panel, text="TELEMETRY TELEPAD", 
-            font=ctk.CTkFont(family="Courier New", size=14, weight="bold"), text_color="#ff007f"
+        send_btn = ctk.CTkButton(
+            input_container, text="RUN CORE ▶", width=120, height=50,
+            font=ctk.CTkFont(family="Consolas", size=13, weight="bold"),
+            fg_color=ACCENT_NEON, text_color="#0F172A", hover_color="#22D3EE",
+            command=self.submit_user_message
         )
-        lbl_deck.pack(pady=20, anchor="w", padx=20)
-        
-        # Scrollable container container for dataset cards
-        self.deck_container = ctk.CTkScrollableFrame(self.right_panel, fg_color="transparent")
-        self.deck_container.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        self.render_knowledge_quick_cards()
+        send_btn.grid(row=0, column=1, sticky="e")
 
-    def render_knowledge_quick_cards(self):
-        # Clear out current items inside card container
-        for widget in self.deck_container.winfo_children():
-            widget.destroy()
-            
-        # Target Cards Library Definition Meta-Map Array System 
-        cards_pool = [
-            {"title": "Bubble Sort Explanations", "prompt": "Explain bubble sort details", "cat": "sorting"},
-            {"title": "Bubble Sort Complexity", "prompt": "What is the time complexity of bubble sort?", "cat": "sorting"},
-            {"title": "Bubble Sort Code", "prompt": "Give me bubble sort sample code", "cat": "sorting"},
-            {"title": "Selection Sort Details", "prompt": "Explain selection sort algorithm details", "cat": "sorting"},
-            {"title": "Selection Sort Code", "prompt": "Show me sample code for selection sort", "cat": "sorting"},
-            {"title": "Insertion Sort Info", "prompt": "Explain insertion sort structure", "cat": "sorting"},
-            {"title": "Merge Sort Engine", "prompt": "Explain merge sort workflow", "cat": "sorting"},
-            {"title": "Quick Sort Blueprint", "prompt": "Explain quick sort setup", "cat": "sorting"},
-            {"title": "Array Structures Info", "prompt": "What is an array data structure?", "cat": "array"},
-            {"title": "Array Data Facts", "prompt": "Give me a fact about array systems", "cat": "array"},
-            {"title": "Linked List Elements", "prompt": "Explain what is a linked list structure", "cat": "linked_list"},
-            {"title": "Singly Linked List Code", "prompt": "Show code for singly linked list setup", "cat": "linked_list"},
-            {"title": "Doubly Linked List Map", "prompt": "Explain doubly linked list characteristics", "cat": "linked_list"},
-            {"title": "Circular Double Code Loop", "prompt": "Give code for circular doubly linked list", "cat": "linked_list"},
+    def append_chat_bubble(self, sender, text):
+        is_user = (sender == "USER")
+        align_side = "e" if is_user else "w"
+        bubble_bg = "#1E293B" if is_user else "#0F172A"
+        border_col = ACCENT_PINK if is_user else ACCENT_NEON
+        text_color = TEXT_MAIN if is_user else "#E2E8F0"
+        
+        outer_row = ctk.CTkFrame(self.chat_scroll, fg_color="transparent")
+        outer_row.pack(fill="x", padx=10, pady=8, anchor=align_side)
+        
+        bubble = ctk.CTkFrame(
+            outer_row, fg_color=bubble_bg, border_width=1, border_color=border_col, corner_radius=8
+        )
+        bubble.pack(side="right" if is_user else "left", padx=5)
+        
+        src_tag = "[NODE ACCESS USER]" if is_user else "[AI TERMINAL TRACE]"
+        tag_color = ACCENT_PINK if is_user else ACCENT_NEON
+        
+        lbl_tag = ctk.CTkLabel(bubble, text=src_tag, font=ctk.CTkFont(family="Consolas", size=10, weight="bold"), text_color=tag_color)
+        lbl_tag.pack(anchor="w", padx=12, pady=(6,2))
+        
+        msg_lbl = ctk.CTkLabel(
+            bubble, text=text, font=ctk.CTkFont(family="Consolas", size=13),
+            text_color=text_color, justify="left", wraplength=550
+        )
+        msg_lbl.pack(anchor="w", padx=12, pady=(0,8))
+        
+        self.chat_scroll._parent_canvas.yview_moveto(1.0)
+        
+    def submit_user_message(self):
+        query = self.entry_field.get().strip()
+        if not query:
+            return
+        self.entry_field.delete(0, tk.END)
+        self.append_chat_bubble("USER", query)
+        
+        self.after(300, lambda: self.process_ai_reply(query))
+
+    def process_ai_reply(self, query):
+        response_text = get_response(query)
+        self.append_chat_bubble("BOT", response_text)
+        say(response_text)
+
+    def clear_chat_log(self):
+        for child in self.chat_scroll.winfo_children():
+            child.destroy()
+        self.append_chat_bubble("SYSTEM", "Display pipeline vectors systematically flushed.")
+
+    # ==========================================
+    # RIGHT PANEL MODULE (MACRO INTERCEPT CARDS)
+    # ==========================================
+    def build_right_panel(self):
+        right_panel = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, corner_radius=0, border_width=1, border_color="#1E293B")
+        right_panel.grid(row=1, column=2, sticky="nsew", padx=(1,0), pady=(1,0))
+        
+        lbl_sec = ctk.CTkLabel(right_panel, text="KNOWLEDGE MACRO TRACERS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        lbl_sec.pack(anchor="w", padx=20, pady=(20, 10))
+        
+        # Interactive Macros mapped directly to distinct user data segments
+        cards_data = [
+            ("Bubble Sort Explanation", "What is bubble sort explanation"),
+            ("Bubble Sort Code Syntax", "Bubble sort sample codes"),
+            ("Selection Sort Matrix", "Selection sort explanation"),
+            ("Insertion Sort Blueprint", "Insertion sort sample codes"),
+            ("Merge Sort Log Scales", "Merge sort time complexity"),
+            ("Quick Sort Core Speed", "Quick sort time complexity"),
+            ("Singly Linked List Node", "singly linked list explanations"),
+            ("Doubly Pointer Chains", "doubly linked list sample codes"),
+            ("Circular Pointer Wraps", "circular linked list explanations"),
+            ("Array Cache Benefits", "array facts"),
+            ("Matrix Array Operations", "insertion operations")
         ]
         
-        # Parse items based on navigational selector filter state definitions
-        for design_meta in cards_pool:
-            if self.current_filter_category != "all" and design_meta["cat"] != self.current_filter_category:
-                continue
-                
-            card_frame = ctk.CTkFrame(self.deck_container, fg_color="#121226", border_width=1, border_color="#333366")
-            card_frame.pack(fill="x", pady=8, padx=5)
+        scroll_cards = ctk.CTkScrollableFrame(right_panel, fg_color="transparent")
+        scroll_cards.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        for title, command in cards_data:
+            card_frame = ctk.CTkFrame(scroll_cards, fg_color="#1E293B", border_width=1, border_color="#334155", height=65)
+            card_frame.pack(fill="x", padx=10, pady=6)
+            card_frame.pack_propagate(False)
             
-            card_lbl = ctk.CTkLabel(
-                card_frame, text=design_meta["title"].upper(), 
-                font=ctk.CTkFont(family="Courier New", size=11, weight="bold"),
-                text_color="#00f0ff", justify="left"
+            btn = ctk.CTkButton(
+                card_frame, text=f"⚡ {title}", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+                fg_color="transparent", text_color=TEXT_MAIN, anchor="w", hover_color="#27272A",
+                command=lambda cmd=command: self.trigger_macro_query(cmd)
             )
-            card_lbl.pack(anchor="w", padx=12, pady=(10, 5))
-            
-            trigger_action_btn = ctk.CTkButton(
-                card_frame, text="DEPLOY QUERY", font=ctk.CTkFont(family="Courier New", size=10, weight="bold"),
-                height=24, fg_color="#221144", hover_color="#ff007f", text_color="#ffffff",
-                command=lambda text_prompt=design_meta["prompt"]: self.process_user_message(text_prompt)
-            )
-            trigger_action_btn.pack(fill="x", padx=12, pady=(0, 10))
+            btn.pack(fill="both", expand=True, padx=5, pady=5)
 
-# -------------------------------------------------------------------------
-# RUNTIME ENGINE INITIALIZATION BOOTSTRAPPER
-# -------------------------------------------------------------------------
+    def trigger_macro_query(self, command_string):
+        self.append_chat_bubble("USER", command_string)
+        self.after(250, lambda: self.process_ai_reply(command_string))
+
+
 if __name__ == "__main__":
-    app = DSABotApp()
+    app = ModernDSABotApp()
     app.mainloop()
