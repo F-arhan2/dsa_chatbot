@@ -41,25 +41,41 @@ except Exception as e:
 
 # Global TTS state tracker
 tts_enabled = True
-
+voice_gender = "male"
 def say(text):
-    """Executes clean non-blocking Text-To-Speech calls."""
     if not tts_enabled:
         return
+
     def _speak_thread():
         try:
             engine = pyttsx3.init()
             engine.setProperty("rate", 165)
-            # Filter structural brackets out of speak stream to prevent robot artifacts
+
+            voices = engine.getProperty("voices")
+
+            # Select voice
+            if voice_gender == "female":
+                for voice in voices:
+                    if "female" in voice.name.lower() or "zira" in voice.name.lower():
+                        engine.setProperty("voice", voice.id)
+                        break
+            else:
+                for voice in voices:
+                    if "male" in voice.name.lower() or "david" in voice.name.lower():
+                        engine.setProperty("voice", voice.id)
+                        break
+
             cleaned_text = str(text).split("{")[0].replace("\n", " ").replace(";", " ")
-            engine.say(cleaned_text[:150]) 
+            engine.say(cleaned_text[:150])
             engine.runAndWait()
+
         except Exception:
             pass
+
     threading.Thread(target=_speak_thread, daemon=True).start()
 
 def get_response(user_input):
-    """Processes natural language keyword strings and maps directly onto the user's JSON keys."""
+
     text = user_input.lower().strip()
     
     # Check for close/exit command triggers
@@ -182,6 +198,18 @@ class ModernDSABotApp(ctk.CTk):
         # Deploy futuristic splash screen instantly
         self.init_splash_screen()
 
+    def change_voice(self, choice):
+        global voice_gender
+
+        if choice.lower() == "female":
+            voice_gender = "female"
+        else:
+            voice_gender = "male"
+
+        self.append_chat_bubble(
+            "SYSTEM",
+            f"Voice changed to {choice}."
+    )
     # ==========================================
     # STARTUP EXPERIENCE (SPLASH MODULE)
     # ==========================================
@@ -299,7 +327,7 @@ class ModernDSABotApp(ctk.CTk):
         self.build_center_panel()
         self.build_right_panel()
         
-        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "AI Frame synchronized with datasets/dsa_data.json configuration node. Diagnostic loops running clean."))
+        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "Hello! I'm your DSA Assistant. Ask me about arrays, linked lists, sorting."))
 
     # ==========================================
     # TOP METRICS HEADER BLOCK
@@ -338,52 +366,50 @@ class ModernDSABotApp(ctk.CTk):
         left_panel = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, corner_radius=0, border_width=1, border_color="#1E293B")
         left_panel.grid(row=1, column=0, sticky="nsew", padx=(0,1), pady=(1,0))
         
-        lbl_sec = ctk.CTkLabel(left_panel, text="TERMINAL SUB-SECTIONS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        lbl_sec = ctk.CTkLabel(left_panel, text="History", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         lbl_sec.pack(anchor="w", padx=20, pady=(20, 15))
         
-        # Core Navigation targets
-        nav_items = [
-            ("Dashboard Cluster", "hello"),
-            ("Sorting Matrix", "types of sorting"),
-            ("Linear Arrays", "array allocation definition"),
-            ("Linked Nodes", "linked list definition")
-        ]
-        self.nav_buttons = []
-        
-        for idx, (label, query) in enumerate(nav_items):
-            is_selected = (idx == 0)
-            btn = ctk.CTkButton(
-                left_panel, text=label, anchor="w", height=45,
-                font=ctk.CTkFont(family="Consolas", size=13),
-                fg_color="#1E293B" if is_selected else "transparent",
-                text_color=ACCENT_NEON if is_selected else TEXT_MAIN,
-                border_width=1 if is_selected else 0,
-                border_color=ACCENT_NEON,
-                hover_color="#1E293B",
-                command=lambda l=label, q=query: self.handle_nav_click(l, q)
-            )
-            btn.pack(fill="x", padx=15, pady=6)
-            self.nav_buttons.append(btn)
+       
             
-        sys_lbl = ctk.CTkLabel(left_panel, text="PERIPHERAL CHANNELS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        sys_lbl = ctk.CTkLabel(left_panel, text="Voice Assistant", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         sys_lbl.pack(anchor="w", padx=20, pady=(40, 10))
         
+        self.voice_label = ctk.CTkLabel(
+        left_panel,
+        text="Voice Type",
+        font=ctk.CTkFont(family="Consolas", size=12),
+        text_color=TEXT_MAIN
+    )
+        self.voice_label.pack(anchor="w", padx=20, pady=(10,5))
+
+        self.voice_menu = ctk.CTkOptionMenu(
+        left_panel,
+        values=["Male", "Female"],
+        command=self.change_voice
+    )
+        self.voice_menu.pack(anchor="w", padx=20, pady=(0,10))
+        self.voice_menu.set("Male")
+
         self.tts_switch = ctk.CTkSwitch(
-            left_panel, text="Vocalize Matrix Streams", font=ctk.CTkFont(family="Consolas", size=12),
-            text_color=TEXT_MAIN, progress_color=ACCENT_NEON, command=self.toggle_tts
-        )
+        left_panel,
+        text="Voice Enabled",
+        font=ctk.CTkFont(family="Consolas", size=12),
+        text_color=TEXT_MAIN,
+        progress_color=ACCENT_NEON,
+        command=self.toggle_tts
+    )
         self.tts_switch.pack(anchor="w", padx=20, pady=10)
         self.tts_switch.select()
         
         clear_btn = ctk.CTkButton(
-            left_panel, text="Flush Console Buffers", font=ctk.CTkFont(family="Consolas", size=12),
+            left_panel, text="Clear Terminal", font=ctk.CTkFont(family="Consolas", size=12),
             fg_color="#7F1D1D", hover_color="#991B1B", text_color=TEXT_MAIN, command=self.clear_chat_log
         )
         clear_btn.pack(fill="x", padx=15, pady=15, side="bottom")
 
         # Integrated Exit Macro Button
         close_btn = ctk.CTkButton(
-            left_panel, text="TERMINATE CONNECTION", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+            left_panel, text="End Session", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
             fg_color="#3F3F46", hover_color="#18181B", text_color=ACCENT_PINK, command=self.terminate_system_pipeline
         )
         close_btn.pack(fill="x", padx=15, pady=(0, 10), side="bottom")
@@ -423,7 +449,7 @@ class ModernDSABotApp(ctk.CTk):
         input_container.grid_columnconfigure(1, weight=0)
         
         self.entry_field = ctk.CTkEntry(
-            input_container, placeholder_text="Inject matrix instruction string... (type 'exit' to quit)",
+            input_container, placeholder_text="Type your question...",
             font=ctk.CTkFont(family="Consolas", size=13), height=50,
             fg_color="#0F172A", border_color="#334155", text_color=TEXT_MAIN, placeholder_text_color="#475569"
         )
@@ -453,7 +479,7 @@ class ModernDSABotApp(ctk.CTk):
         )
         bubble.pack(side="right" if is_user else "left", padx=5)
         
-        src_tag = "[NODE ACCESS USER]" if is_user else "[AI TERMINAL TRACE]"
+        src_tag = "[NODE ACCESS USER]" if is_user else "[AI TERMINAL]"
         tag_color = ACCENT_PINK if is_user else ACCENT_NEON
         
         lbl_tag = ctk.CTkLabel(bubble, text=src_tag, font=ctk.CTkFont(family="Consolas", size=10, weight="bold"), text_color=tag_color)
@@ -488,7 +514,7 @@ class ModernDSABotApp(ctk.CTk):
     def clear_chat_log(self):
         for child in self.chat_scroll.winfo_children():
             child.destroy()
-        self.append_chat_bubble("SYSTEM", "Display pipeline vectors systematically flushed.")
+        self.append_chat_bubble("SYSTEM","Hello! I'm your AI assistant. How can I help you today?")
 
     # ==========================================
     # RIGHT PANEL MODULE (MACRO INTERCEPT CARDS)
