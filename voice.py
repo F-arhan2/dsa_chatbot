@@ -2,17 +2,8 @@ import json
 import random
 import pyttsx3
 
-# -----------------------
-# LOAD DATASET
-# -----------------------
-
 with open("datasets/dsa_data.json", "r", encoding="utf-8") as file:
     dsa = json.load(file)
-
-# -----------------------
-# TTS ENGINE
-# -----------------------
-
 
 
 def say(text):
@@ -20,10 +11,6 @@ def say(text):
     engine.setProperty("rate", 150)
     engine.say(str(text))
     engine.runAndWait()
-
-# -----------------------
-# RESPONSE FUNCTION
-# -----------------------
 
 def get_response(user_input):
 
@@ -50,7 +37,7 @@ def get_response(user_input):
             dsa["greeting_data"]["good_evening"]
         )
 
-    # Sorting Definition
+  
 
     if any(word in text for word in [
         "what is sorting",
@@ -62,14 +49,13 @@ def get_response(user_input):
             dsa["sorting"]["general"]["definition"]
         )
 
-    # Sorting Types
 
     if "types of sorting" in text or "sorting types" in text:
         return "\n".join(
             dsa["sorting"]["general"]["types"]
         )
 
-    # Bubble Sort
+  
 
     if "bubble sort" in text:
 
@@ -87,7 +73,7 @@ def get_response(user_input):
             dsa["sorting"]["bubble_sort"]["explanations"]
         )
 
-    # Selection Sort
+  
 
     if "selection sort" in text:
 
@@ -105,7 +91,7 @@ def get_response(user_input):
             dsa["sorting"]["selection_sort"]["explanations"]
         )
 
-    # Insertion Sort
+
 
     if "insertion sort" in text:
 
@@ -123,7 +109,7 @@ def get_response(user_input):
             dsa["sorting"]["insertion_sort"]["explanations"]
         )
 
-    # Merge Sort
+   
 
     if "merge sort" in text:
 
@@ -141,7 +127,7 @@ def get_response(user_input):
             dsa["sorting"]["merge_sort"]["explanations"]
         )
 
-    # Quick Sort
+
 
     if "quick sort" in text:
 
@@ -159,7 +145,7 @@ def get_response(user_input):
             dsa["sorting"]["quick_sort"]["explanations"]
         )
 
-    # Array
+  
 
     if "array" in text:
 
@@ -182,7 +168,7 @@ def get_response(user_input):
             dsa["array"]["definition"]
         )
 
-    # Linked List
+
 
     if "linked list" in text:
 
@@ -217,9 +203,6 @@ def get_response(user_input):
     ])
 
 
-# -----------------------
-# MAIN LOOP
-# -----------------------
 
 print("=" * 40)
 print("      DSA CHATBOT")
