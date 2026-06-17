@@ -8,37 +8,37 @@ import math
 import sys
 import os
 import webbrowser
+import speech_recognition as sr
 
-# Set up global styling attributes for a Cyberpunk / Iron Man HUD feel
+# Set up global styling attributes for a sleek, human-centric developer layout
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-BG_COLOR = "#0A0B10"          # Ultra dark space/cyberpunk tone
-PANEL_COLOR = "#121420"       # Translucent glass-feel background
-ACCENT_NEON = "#00F0FF"       # Cyberpunk Cyan / Neon Blue
-ACCENT_PINK = "#FF007F"       # Cyberpunk Pink / Magenta
-TEXT_MAIN = "#E2E8F0"         # Clean readable near-white text
-TEXT_MUTED = "#64748B"        # Sleek grey text
+BG_COLOR = "#0F1115"          # Matte deep carbon background
+PANEL_COLOR = "#161920"       # Solid charcoal side paneling
+ACCENT_AMBER = "#F59E0B"      # Focused Solarized Amber / Warning Orange
+ACCENT_SLATE = "#38BDF8"      # Engineering Slate Blue
+TEXT_MAIN = "#F1F5F9"         # Clean, pure-text off-white
+TEXT_MUTED = "#64748B"        # Subtle steel grey for subtext
 
 # -------------------------------------------------------------------------
 # MANDATORY FILE VALIDATION & DYNAMIC LOADING
 # -------------------------------------------------------------------------
-DATASET_PATH = "datasets/dsa_data.json"
+DATASET_PATH = r"datasets/dsa_data.json"
 dsa = {}
 
 def load_dataset():
     global dsa
     if not os.path.exists(DATASET_PATH):
-        print(f"[-] CRITICAL CONFIGURATION ERROR: Absolute dependency missing.")
+        print(f"[-] ERROR: Dependency missing.")
         print(f"    The system requires '{DATASET_PATH}' to initialize.")
-        print(f"    Terminating AI Core environment setup pipeline.")
         sys.exit(1)
 
     try:
         with open(DATASET_PATH, "r", encoding="utf-8") as file:
             dsa = json.load(file)
     except Exception as e:
-        print(f"[-] CRITICAL FILE READ ERROR: '{DATASET_PATH}' failed compilation.")
+        print(f"[-] DESERIALIZATION ERROR: '{DATASET_PATH}' failed to read.")
         print(f"    Details: {e}")
         sys.exit(1)
 
@@ -48,34 +48,39 @@ load_dataset()
 # Global TTS state tracker
 tts_enabled = True
 voice_gender = "male"
+engine_status = None  # Track the active engine instance for interruption
 
 def say(text):
+    global engine_status
     if not tts_enabled:
         return
 
     def _speak_thread():
+        global engine_status
         try:
-            engine = pyttsx3.init()
-            engine.setProperty("rate", 165)
-            voices = engine.getProperty("voices")
+            engine_status = pyttsx3.init()
+            engine_status.setProperty("rate", 165)
+            voices = engine_status.getProperty("voices")
 
             # Select voice
             if voice_gender == "female":
                 for voice in voices:
                     if "female" in voice.name.lower() or "zira" in voice.name.lower():
-                        engine.setProperty("voice", voice.id)
+                        engine_status.setProperty("voice", voice.id)
                         break
             else:
                 for voice in voices:
                     if "male" in voice.name.lower() or "david" in voice.name.lower():
-                        engine.setProperty("voice", voice.id)
+                        engine_status.setProperty("voice", voice.id)
                         break
 
             cleaned_text = str(text).split("{")[0].replace("\n", " ").replace(";", " ")
-            engine.say(cleaned_text)
-            engine.runAndWait()
+            engine_status.say(cleaned_text)
+            engine_status.runAndWait()
         except Exception:
             pass
+        finally:
+            engine_status = None
 
     threading.Thread(target=_speak_thread, daemon=True).start()
 
@@ -87,13 +92,11 @@ def detect_topic(text):
     Scans variations of user inputs to isolate exact target keys within the multi-tier JSON.
     Maps natural variants into the specific structure parameters requested.
     """
-    # 2D Array check must precede basic array matching
     if "2d array" in text or "two dimensional array" in text or "matrix" in text:
         return ("Arrays", "2D Array")
     if "array" in text:
         return ("Arrays", "Array")
     
-    # Specific Linked List variants mapping rules
     if "circular doubly linked list" in text or "circular doubly" in text:
         return ("Linked Lists", "Circular Doubly Linked List")
     if "circular linked list" in text or "circular list" in text:
@@ -105,7 +108,6 @@ def detect_topic(text):
     if "linked list" in text or "node list" in text:
         return ("Linked Lists", "Singly Linked List")
 
-    # Stacks matching pathways
     if "stack using array" in text or "array stack" in text:
         return ("Stacks", "Stack Using Array")
     if "stack using linked list" in text or "linked list stack" in text:
@@ -113,7 +115,6 @@ def detect_topic(text):
     if "stack" in text:
         return ("Stacks", "Stack Using Array")
 
-    # Queues verification structures
     if "circular queue" in text:
         return ("Queues", "Circular Queue")
     if "priority queue" in text:
@@ -125,13 +126,11 @@ def detect_topic(text):
     if "queue" in text:
         return ("Queues", "Simple Queue")
 
-    # Searching Algorithms algorithms mappings
     if "linear search" in text or "sequential search" in text:
         return ("Searching Algorithms", "Linear Search")
     if "binary search" in text:
         return ("Searching Algorithms", "Binary Search")
 
-    # Sorting Techniques processing loops
     if "bubble sort" in text:
         return ("Sorting Algorithms", "Bubble Sort")
     if "selection sort" in text:
@@ -143,7 +142,6 @@ def detect_topic(text):
     if "quick sort" in text:
         return ("Sorting Algorithms", "Quick Sort")
 
-    # Common Operations validations
     if "traversal" in text:
         return ("Common Operations", "Traversal")
     if "insertion operation" in text or "insert operation" in text:
@@ -153,7 +151,6 @@ def detect_topic(text):
     if "searching operation" in text or "search operation" in text:
         return ("Common Operations", "Searching")
 
-    # Higher Tier Trees structure checking
     if "binary search tree" in text or "bst" in text:
         return ("Trees", "Binary Search Tree")
     if "binary tree" in text:
@@ -164,9 +161,6 @@ def detect_topic(text):
     return (None, None)
 
 def detect_intent(text):
-    """
-    Determines exactly which sub-attribute token parameter is requested from the data matrix block.
-    """
     if "definition" in text or "what is" in text or "define" in text:
         return "definition"
     if "explain" in text or "explanation" in text or "tell me about" in text:
@@ -188,14 +182,9 @@ def detect_intent(text):
     if "example" in text or "sample data" in text:
         return "examples"
     
-    # Fallback default parameter rule if nothing explicit maps
     return "definition"
 
 def format_response(topic_name, intent, data_block):
-    """
-    Formats the processed data elements into human-readable outputs instead of raw elements.
-    Converts multi-line code structures or formats bullet blocks.
-    """
     header = f"Topic: {topic_name}\nSection: {intent.replace('_', ' ').title()}\n\n"    
     if intent == "definition":
         bullets = "\n".join([f"• {point}" for point in data_block])
@@ -226,7 +215,6 @@ def format_response(topic_name, intent, data_block):
         return f"{header}• Metric Profile: {data_block}"
         
     elif intent == "sample_code":
-        # Returns the raw unformatted multi-line block with spacing indicators untouched
         return f"Topic: {topic_name} (COMPLETE JAVA SPECIFICATION)\n{'-'*60}\n{data_block}"
 
     return str(data_block)
@@ -234,21 +222,18 @@ def format_response(topic_name, intent, data_block):
 def get_response(user_input):
     text = user_input.lower().strip()
     
-    # Check for close/exit command triggers
     if text in ["exit", "quit", "close", "shutdown", "exit cmd", "bye", "byee"]:
-        return "[SYSTEM SHUTDOWN]: De-initializing core UI buffers. Goodbye."
+        return "[SYSTEM]: Terminating environment pipeline. Goodbye."
 
-    # Direct Override for  ("Who created you", "Author", "God")
     if any(keyword in text for keyword in ["who created you", "creator", "author", "who is your author", "who is god", "who made you"]):
-        return "[Ai Terminal]: I was developed by Farhan Shaikh to help students learn Data Structures and Algorithms"
+        return "[Application Terminal]: Developed by Farhan Shaikh to serve as an engineering platform for Data Structures and Algorithms."
 
     if any(keyword in text for keyword in ["god"]):
-        return "[Ai Terminal]: For me their is only one god 'Farhan Shaikh' "
-    # Direct Override for "What is DSA" (Simple 2-line explanation)
+        return "[Application Terminal]: Project Authority: 'Farhan Shaikh'."
+        
     if text in ["what is dsa", "define dsa", "explain dsa", "dsa"]:
         return "Data Structures and Algorithms (DSA) is a foundational branch of computer science focused on organizing data efficiently and designing step-by-step procedures to solve complex computational problems. Mastering DSA allows developers to write optimized, high-performance software that uses minimal time and memory resources."
 
-    # Open Website Command
     if text.startswith("open "):
         site = text.replace("open ", "").strip()
         if "." not in site:
@@ -259,37 +244,32 @@ def get_response(user_input):
         except Exception:
             return f"Unable to open {site}."
 
-    # Process Greeting Sub-checks
     if text in ["hi", "hello", "hey", "greetings"]:
-        return "Greetings! Core system data banks operational. Query target data categories: [Arrays, Linked Lists, Stacks, Queues, Searching, Sorting, Trees]."
+        return "Connection active. Standard indexed reference categories: [Arrays, Linked Lists, Stacks, Queues, Searching, Sorting, Trees]."
     if text in ["good morning", "gm", "good afternoon", "good evening"]:
-        return f"Hello, welcome back to the terminal framework. Ready to look up target algorithms data."
+        return f"Terminal initialized. Awaiting index parameters or query operations."
 
-    # Determine structural target positions
     category, topic = detect_topic(text)
     intent = detect_intent(text)
 
-    # Route request if valid matches are identified within the structure blocks
     if category and topic:
         try:
-            # Safely explore the knowledge base block configuration
             kb = dsa.get("dsa_knowledge_base", {})
             target_data = kb.get(category, {}).get(topic, {})
             
             if not target_data:
-                return f"[INFO UNMAPPED]: Topic structural reference '{topic}' was found but configuration branches are blank."
+                return f"[INFO UNMAPPED]: Reference branch '{topic}' matches but contains empty configurations."
 
             if intent in target_data:
                 return format_response(topic, intent, target_data[intent])
             else:
-                return f"[FALLBACK PROCESSING]: The node framework path '{topic}' exists, but the parameter '{intent}' is currently unavailable."
+                return f"[FALLBACK PROCESSING]: Leaf context '{topic}' located, but block parsing key '{intent}' is unavailable."
         except Exception as e:
-            return f"[CORE MAPPING ERROR]: Processing index tracking parameters failed. Reason: {e}"
+            return f"[ERROR]: Index tracking processing fault: {e}"
 
-    # Target data fallback prompt tracking option suggestions
     fallback_msg = (
-        "System unable to safely resolve dynamic keywords onto dataset map.\n\n"
-        "Supported Query Data Elements:\n"
+        "Unable to resolve parameters. Please provide explicit keyword tags.\n\n"
+        "Supported References:\n"
         "• Arrays: Array, 2D Array\n"
         "• Linked Lists: Singly, Doubly, Circular, Circular Doubly\n"
         "• Stacks & Queues: Simple Queue, Circular Queue, Priority Queue, Deque\n"
@@ -304,21 +284,18 @@ class ModernDSABotApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("DSA BOT")
+        self.title("DSA BOT Manager")
         self.geometry("1400x800")
         self.configure(fg_color=BG_COLOR)
         
-        # Handle Window standard 'X' close button intercept
         self.protocol("WM_DELETE_WINDOW", self.terminate_system_pipeline)
         
-        # Responsive master grid configuration
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
         
         self.splash_frame = None
         self.main_container = None
         
-        # Deploy futuristic splash screen instantly
         self.init_splash_screen()
 
     def change_voice(self, choice):
@@ -328,7 +305,41 @@ class ModernDSABotApp(ctk.CTk):
         else:
             voice_gender = "male"
 
-        self.append_chat_bubble("SYSTEM", f"Voice changed to {choice}.")
+        self.append_chat_bubble("SYSTEM", f"Audio device changed to standard {choice} profile.")
+
+    def listen_speech(self):
+        def recognize():
+            global engine_status
+            try:
+                if engine_status is not None:
+                    try:
+                        engine_status.stop()
+                    except Exception:
+                        pass
+                
+                r = sr.Recognizer()
+
+                with sr.Microphone() as source:
+                    self.append_chat_bubble("SYSTEM", "Awaiting active speech stream input...")
+                    r.adjust_for_ambient_noise(source, duration=1)
+                    audio = r.listen(source, timeout=5)
+
+                text = r.recognize_google(audio)
+
+                self.entry_field.delete(0, tk.END)
+                self.entry_field.insert(0, text)
+                self.append_chat_bubble("User",text)
+                self.process_ai_reply(text)
+
+            except sr.UnknownValueError:
+                self.append_chat_bubble("SYSTEM", "Audio tracking failed: Input was unrecognized.")
+
+            except sr.RequestError:
+                self.append_chat_bubble("SYSTEM", "External speech translation pipeline offline.")
+
+            except Exception as e:
+                self.append_chat_bubble("SYSTEM", f"Voice Exception Error: {e}")
+        threading.Thread(target=recognize, daemon=True).start()
 
     # ==========================================
     # STARTUP EXPERIENCE (SPLASH MODULE)
@@ -340,32 +351,31 @@ class ModernDSABotApp(ctk.CTk):
         self.splash_canvas = tk.Canvas(self.splash_frame, bg=BG_COLOR, highlightthickness=0)
         self.splash_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
         
-        # Generate floating background vector particles
         self.particles = []
         for _ in range(40):
             self.particles.append({
                 "x": random.randint(100, 1300),
                 "y": random.randint(100, 700),
-                "radius": random.randint(2, 5),
-                "dx": random.uniform(-1.2, 1.2),
-                "dy": random.uniform(-1.2, 1.2),
-                "color": random.choice([ACCENT_NEON, ACCENT_PINK, "#2563EB"])
+                "radius": random.randint(2, 4),
+                "dx": random.uniform(-0.8, 0.8),
+                "dy": random.uniform(-0.8, 0.8),
+                "color": random.choice([ACCENT_SLATE, "#1E293B", "#475569"])
             })
             
         self.logo_label = ctk.CTkLabel(
-            self.splash_frame, text="DSA BOT", font=ctk.CTkFont(family="Consolas", size=76, weight="bold"),
-            text_color=ACCENT_NEON
+            self.splash_frame, text="DSA DESKTOP SYSTEM", font=ctk.CTkFont(family="Consolas", size=48, weight="bold"),
+            text_color=TEXT_MAIN
         )
         self.logo_label.place(relx=0.5, rely=0.4, anchor="center")
         
         self.status_label = ctk.CTkLabel(
-            self.splash_frame, text="Initializing Cybernetic Hub Framework...", font=ctk.CTkFont(family="Consolas", size=15),
+            self.splash_frame, text="Locating environment files...", font=ctk.CTkFont(family="Consolas", size=13),
             text_color=TEXT_MUTED
         )
         self.status_label.place(relx=0.5, rely=0.55, anchor="center")
         
         self.progress_bar = ctk.CTkProgressBar(
-            self.splash_frame, width=420, height=6, fg_color="#1E293B", progress_color=ACCENT_PINK
+            self.splash_frame, width=420, height=4, fg_color="#1E293B", progress_color=ACCENT_AMBER
         )
         self.progress_bar.place(relx=0.5, rely=0.6, anchor="center")
         self.progress_bar.set(0)
@@ -373,12 +383,10 @@ class ModernDSABotApp(ctk.CTk):
         self.ring_angle = 0
         self.animate_splash_canvas()
         
-        # Sequential multi-staged timing injection tracking bar values
-        self.after(700, lambda: self.update_splash_stage("Parsing Verified datasets/dsa_data.json Structures...", 0.25))
-        self.after(1500, lambda: self.update_splash_stage("Compiling Array, Sorting, and Pointer Vectors...", 0.65))
-        self.after(2400, lambda: self.update_splash_stage("Booting HUD Dashboard Core Controls...", 0.90))
-        self.after(3100, lambda: self.update_splash_stage("Secure Connection Established: Ready", 1.0))
-        self.after(3600, self.transition_to_dashboard)
+        self.after(500, lambda: self.update_splash_stage("Parsing datasets/dsa_data.json structural mapping data...", 0.30))
+        self.after(1200, lambda: self.update_splash_stage("Caching matrix layouts and linked code structures...", 0.70))
+        self.after(2000, lambda: self.update_splash_stage("Initializing desktop platform controller windows...", 0.95))
+        self.after(2500, self.transition_to_dashboard)
 
     def animate_splash_canvas(self):
         if not self.splash_frame or not self.splash_frame.winfo_exists():
@@ -401,21 +409,15 @@ class ModernDSABotApp(ctk.CTk):
                 fill=p["color"], outline=""
             )
             
-        self.ring_angle += 0.05
-        r = 135
-        cx, cy = w / 2, h / 2.415
+        self.ring_angle += 0.03
+        r = 150
+        cx, cy = w / 2, h / 2.4
         
         x1 = cx + r * math.cos(self.ring_angle)
         y1 = cy + r * math.sin(self.ring_angle)
-        x2 = cx + r * math.cos(self.ring_angle + math.pi*0.6)
-        y2 = cy + r * math.sin(self.ring_angle + math.pi*0.6)
-        self.splash_canvas.create_line(x1, y1, x2, y2, fill=ACCENT_NEON, width=2)
-        
-        x3 = cx + r * math.cos(self.ring_angle + math.pi)
-        y3 = cy + r * math.sin(self.ring_angle + math.pi)
-        x4 = cx + r * math.cos(self.ring_angle + math.pi * 1.6)
-        y4 = cy + r * math.sin(self.ring_angle + math.pi * 1.6)
-        self.splash_canvas.create_line(x3, y3, x4, y4, fill=ACCENT_PINK, width=2)
+        x2 = cx + r * math.cos(self.ring_angle + math.pi*0.5)
+        y2 = cy + r * math.sin(self.ring_angle + math.pi*0.5)
+        self.splash_canvas.create_line(x1, y1, x2, y2, fill=ACCENT_SLATE, width=1)
         
         self.after(16, self.animate_splash_canvas)
 
@@ -447,26 +449,26 @@ class ModernDSABotApp(ctk.CTk):
         self.build_center_panel()
         self.build_right_panel()
         
-        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "Hello! I'm your DSA Assistant. Ask me about arrays, linked lists, sorting or custom operations."))
+        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "Hello, I am DSA AI Assistant,How can i help u"))
 
     # ==========================================
     # TOP METRICS HEADER BLOCK
     # ==========================================
     def build_top_bar(self):
-        top_bar = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, height=60, corner_radius=0, border_width=1, border_color="#1E293B")
+        top_bar = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, height=55, corner_radius=0, border_width=1, border_color="#1E293B")
         top_bar.grid(row=0, column=0, columnspan=3, sticky="ew")
         top_bar.grid_propagate(False)
         
-        title_lbl = ctk.CTkLabel(top_bar, text="▲ DSA Chat TERMINAL", font=ctk.CTkFont(family="Consolas", size=16, weight="bold"), text_color=TEXT_MAIN)
+        title_lbl = ctk.CTkLabel(top_bar, text="DSA AI ASSISTANCE", font=ctk.CTkFont(family="Consolas", size=14, weight="bold"), text_color=TEXT_MAIN)
         title_lbl.pack(side="left", padx=25, pady=15)
         
         self.status_container = ctk.CTkFrame(top_bar, fg_color="transparent")
         self.status_container.pack(side="right", padx=25, pady=15)
         
-        self.pulse_dot = ctk.CTkLabel(self.status_container, text="●", font=ctk.CTkFont(size=18), text_color="#10B981")
+        self.pulse_dot = ctk.CTkLabel(self.status_container, text="●", font=ctk.CTkFont(size=14), text_color="#10B981")
         self.pulse_dot.pack(side="left", padx=5)
         
-        self.status_txt = ctk.CTkLabel(self.status_container, text="CORE COMPILATION STATUS: ONLINE", font=ctk.CTkFont(family="Consolas", size=12), text_color="#10B981")
+        self.status_txt = ctk.CTkLabel(self.status_container, text="LOCAL RUNTIME: STABLE", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         self.status_txt.pack(side="left", padx=5)
         
         self.pulse_state = True
@@ -475,9 +477,9 @@ class ModernDSABotApp(ctk.CTk):
     def toggle_status_pulse(self):
         if hasattr(self, 'pulse_dot') and self.pulse_dot.winfo_exists():
             self.pulse_state = not self.pulse_state
-            color = "#10B981" if self.pulse_state else "#047857"
+            color = "#10B981" if self.pulse_state else "#475569"
             self.pulse_dot.configure(text_color=color)
-            self.after(750, self.toggle_status_pulse)
+            self.after(1000, self.toggle_status_pulse)
 
     # ==========================================
     # LEFT PANEL MODULE (NAV CONTROLLERS)
@@ -486,16 +488,15 @@ class ModernDSABotApp(ctk.CTk):
         left_panel = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, corner_radius=0, border_width=1, border_color="#1E293B")
         left_panel.grid(row=1, column=0, sticky="nsew", padx=(0,1), pady=(1,0))
         
-        lbl_sec = ctk.CTkLabel(left_panel, text="Category Routes", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        lbl_sec = ctk.CTkLabel(left_panel, text="Quick Shortcuts", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         lbl_sec.pack(anchor="w", padx=20, pady=(20, 10))
         
-        # Dynamic creation of Navigation maps from localized array targets
         routes_data = [
-            ("Linear Array Structural Model", "What is an Array?"),
+            ("Linear Array Structs", "What is an Array?"),
             ("Two-Dimensional Grids", "Explain 2D Array"),
-            ("Connected Lists", "What is Singly Linked List"),
-            ("Stack Operations", "Explain Stack Using Array"),
-            ("Queue Scheduling Models", "What is Circular Queue"),
+            ("Connected Nodes (Singly)", "What is Singly Linked List"),
+            ("Stack Operations (Array)", "Explain Stack Using Array"),
+            ("Queue Schedulers", "What is Circular Queue"),
             ("Tree Sorting Schemes", "Explain Binary Search Tree")
         ]
         
@@ -509,44 +510,45 @@ class ModernDSABotApp(ctk.CTk):
             btn.pack(fill="x", padx=15, pady=4)
             self.nav_buttons.append(btn)
             
-        sys_lbl = ctk.CTkLabel(left_panel, text="Voice Assistant", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        sys_lbl = ctk.CTkLabel(left_panel, text="Voice Engine Config", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         sys_lbl.pack(anchor="w", padx=20, pady=(40, 10))
         
         self.voice_label = ctk.CTkLabel(
-            left_panel, text="Voice Type", font=ctk.CTkFont(family="Consolas", size=12), text_color=TEXT_MAIN
+            left_panel, text="Voice Selection", font=ctk.CTkFont(family="Consolas", size=12), text_color=TEXT_MAIN
         )
         self.voice_label.pack(anchor="w", padx=20, pady=(10,5))
 
         self.voice_menu = ctk.CTkOptionMenu(
-            left_panel, values=["Male", "Female"], command=self.change_voice
+            left_panel, values=["Male", "Female"], command=self.change_voice,
+            fg_color="#1E293B", button_color="#334155", button_hover_color="#475569"
         )
         self.voice_menu.pack(anchor="w", padx=20, pady=(0,10))
         self.voice_menu.set("Male")
 
         self.tts_switch = ctk.CTkSwitch(
-            left_panel, text="Voice Enabled", font=ctk.CTkFont(family="Consolas", size=12),
-            text_color=TEXT_MAIN, progress_color=ACCENT_NEON, command=self.toggle_tts
+            left_panel, text="Audio Narration", font=ctk.CTkFont(family="Consolas", size=12),
+            text_color=TEXT_MAIN, progress_color=ACCENT_AMBER, command=self.toggle_tts
         )
         self.tts_switch.pack(anchor="w", padx=20, pady=10)
         self.tts_switch.select()
         
         clear_btn = ctk.CTkButton(
-            left_panel, text="Clear Terminal", font=ctk.CTkFont(family="Consolas", size=12),
-            fg_color="#7F1D1D", hover_color="#991B1B", text_color=TEXT_MAIN, command=self.clear_chat_log
+            left_panel, text="New Chat", font=ctk.CTkFont(family="Consolas", size=12),
+            fg_color="#27272A", hover_color="#3F3F46", text_color=TEXT_MAIN, border_width=1, border_color="#475569"
         )
+        clear_btn.configure(command=self.clear_chat_log)
         clear_btn.pack(fill="x", padx=15, pady=15, side="bottom")
 
-        # Integrated Exit Macro Button
         close_btn = ctk.CTkButton(
-            left_panel, text="End Session", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
-            fg_color="#3F3F46", hover_color="#18181B", text_color=ACCENT_PINK, command=self.terminate_system_pipeline
+            left_panel, text="Terminate Session", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+            fg_color="#7F1D1D", hover_color="#991B1B", text_color=TEXT_MAIN, command=self.terminate_system_pipeline
         )
         close_btn.pack(fill="x", padx=15, pady=(0, 10), side="bottom")
 
     def handle_nav_click(self, selected_label, search_query):
         for btn in self.nav_buttons:
             if btn.cget("text") == selected_label:
-                btn.configure(fg_color="#1E293B", text_color=ACCENT_NEON, border_width=1, border_color=ACCENT_NEON)
+                btn.configure(fg_color="#1E293B", text_color=ACCENT_AMBER, border_width=1, border_color=ACCENT_AMBER)
                 self.append_chat_bubble("USER", f"Terminal Focus Route -> {selected_label}")
                 self.process_ai_reply(search_query)
             else:
@@ -576,40 +578,57 @@ class ModernDSABotApp(ctk.CTk):
         input_container.grid(row=1, column=0, sticky="ew", padx=5, pady=10)
         input_container.grid_columnconfigure(0, weight=1)
         input_container.grid_columnconfigure(1, weight=0)
+        input_container.grid_columnconfigure(2, weight=0)
         
         self.entry_field = ctk.CTkEntry(
-            input_container, placeholder_text="Type your question...",
-            font=ctk.CTkFont(family="Consolas", size=13), height=50,
-            fg_color="#0F172A", border_color="#334155", text_color=TEXT_MAIN, placeholder_text_color="#475569"
+            input_container, placeholder_text="Enter prompt parameter queries...",
+            font=ctk.CTkFont(family="Consolas", size=13), height=46,
+            fg_color="#0F1115", border_color="#334155", text_color=TEXT_MAIN, placeholder_text_color="#475569"
         )
         self.entry_field.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         self.entry_field.bind("<Return>", lambda event: self.submit_user_message())
         
         send_btn = ctk.CTkButton(
-            input_container, text="RUN CORE ▶", width=120, height=50,
-            font=ctk.CTkFont(family="Consolas", size=13, weight="bold"),
-            fg_color=ACCENT_NEON, text_color="#0F172A", hover_color="#22D3EE",
+            input_container, text="↑", width=50, height=46,
+            font=ctk.CTkFont(family="Consolas", size=20, weight="bold"),
+            fg_color=ACCENT_AMBER, text_color="#0F1115", hover_color="#FBBF24",
             command=self.submit_user_message
         )
         send_btn.grid(row=0, column=1, sticky="e")
+        
+        # FIXED MIC BUTTON: Strict size binding with centered interior font padding
+        mic_btn = ctk.CTkButton(
+            input_container,
+            text="🎙",
+            width=46,
+            height=46,
+            font=ctk.CTkFont(family="Consolas", size=14),
+            fg_color="#1E293B",
+            text_color=TEXT_MAIN,
+            hover_color="#334155",
+            border_width=1,
+            border_color="#475569",
+            command=self.listen_speech
+        )
+        mic_btn.grid(row=0, column=2, padx=(10, 0))
 
     def append_chat_bubble(self, sender, text):
         is_user = (sender == "USER")
         align_side = "e" if is_user else "w"
-        bubble_bg = "#1E293B" if is_user else "#0F172A"
-        border_col = ACCENT_PINK if is_user else ACCENT_NEON
-        text_color = TEXT_MAIN if is_user else "#E2E8F0"
+        bubble_bg = "#1E293B" if is_user else "#0F1115"
+        border_col = "#475569" if is_user else ACCENT_AMBER
+        text_color = TEXT_MAIN
         
         outer_row = ctk.CTkFrame(self.chat_scroll, fg_color="transparent")
         outer_row.pack(fill="x", padx=10, pady=8, anchor=align_side)
         
         bubble = ctk.CTkFrame(
-            outer_row, fg_color=bubble_bg, border_width=1, border_color=border_col, corner_radius=8
+            outer_row, fg_color=bubble_bg, border_width=1, border_color=border_col, corner_radius=4
         )
         bubble.pack(side="right" if is_user else "left", padx=5)
         
-        src_tag = "[NODE ACCESS USER]" if is_user else "[AI TERMINAL]"
-        tag_color = ACCENT_PINK if is_user else ACCENT_NEON
+        src_tag = "[CONSOLE TERMINAL USER]" if is_user else "[DATABASE STACK RESPONSE]"
+        tag_color = TEXT_MUTED if is_user else ACCENT_AMBER
         
         lbl_tag = ctk.CTkLabel(bubble, text=src_tag, font=ctk.CTkFont(family="Consolas", size=10, weight="bold"), text_color=tag_color)
         lbl_tag.pack(anchor="w", padx=12, pady=(6,2))
@@ -636,14 +655,13 @@ class ModernDSABotApp(ctk.CTk):
         self.append_chat_bubble("BOT", response_text)
         say(response_text)
         
-        # Intercept string response to safely terminate window pipeline after displaying exit acknowledgement
-        if "[SYSTEM SHUTDOWN]" in response_text:
+        if "[SYSTEM]" in response_text:
             self.after(1200, self.terminate_system_pipeline)
 
     def clear_chat_log(self):
         for child in self.chat_scroll.winfo_children():
             child.destroy()
-        self.append_chat_bubble("SYSTEM", "Hello! I'm your AI assistant. How can I help you today?")
+        self.append_chat_bubble("SYSTEM", "Display registers cleared. Awaiting new instructions.")
 
     # ==========================================
     # RIGHT PANEL MODULE (MACRO INTERCEPT CARDS)
@@ -652,13 +670,11 @@ class ModernDSABotApp(ctk.CTk):
         right_panel = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, corner_radius=0, border_width=1, border_color="#1E293B")
         right_panel.grid(row=1, column=2, sticky="nsew", padx=(1,0), pady=(1,0))
         
-        lbl_sec = ctk.CTkLabel(right_panel, text="KNOWLEDGE MACRO TRACERS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        lbl_sec = ctk.CTkLabel(right_panel, text="INDEX MACRO MONITOR", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         lbl_sec.pack(anchor="w", padx=20, pady=(20, 10))
         
-        # Extended macro collection capturing multiple permutations across topics and intents
         cards_data = [
             ("What is DSA?", "What is DSA"),
-            ("Who created you?", "Who created you?"),
             ("Array Definition", "Give definition of Array"),
             ("Array Applications", "Applications of arrays"),
             ("2D Array Examples", "Give examples of 2D array"),
@@ -688,12 +704,12 @@ class ModernDSABotApp(ctk.CTk):
         scroll_cards.pack(fill="both", expand=True, padx=5, pady=5)
         
         for title, command in cards_data:
-            card_frame = ctk.CTkFrame(scroll_cards, fg_color="#1E293B", border_width=1, border_color="#334155", height=65)
-            card_frame.pack(fill="x", padx=10, pady=6)
+            card_frame = ctk.CTkFrame(scroll_cards, fg_color="#1E293B", border_width=1, border_color="#334155", height=50)
+            card_frame.pack(fill="x", padx=10, pady=4)
             card_frame.pack_propagate(False)
             
             btn = ctk.CTkButton(
-                card_frame, text=f"⚡ {title}", font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+                card_frame, text=f"• {title}", font=ctk.CTkFont(family="Consolas", size=12),
                 fg_color="transparent", text_color=TEXT_MAIN, anchor="w", hover_color="#27272A",
                 command=lambda cmd=command: self.trigger_macro_query(cmd)
             )
@@ -707,9 +723,6 @@ class ModernDSABotApp(ctk.CTk):
     # EXPLICIT DE-INITIALIZATION SEQUENCE
     # ==========================================
     def terminate_system_pipeline(self):
-        """Kills interface widgets safely and flushes process memory."""
-        print("[*] Flushing active HUD mainloop threads...")
-        print("[+] Secure Matrix Connection Severed. Exiting pipeline runtime.")
         self.quit()
         self.destroy()
 
