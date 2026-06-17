@@ -35,7 +35,7 @@ The application features a sleek, human-centric engineering GUI, real-time audio
 
 ## Technologies Used
 
-* **Python 3.x** - Core Platform Runtime
+* **Python 3.13 - Core Platform Runtime
 * **CustomTkinter** - Modernized Flat-UI Graphical Engine wrapper for Tkinter
 * **SpeechRecognition** - Engine wrapper utilized for processing Google Web Speech API microphone arrays
 * **PyAudio** - Mandatory low-level I/O binding audio library for Microphone captures
