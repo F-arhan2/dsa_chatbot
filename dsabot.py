@@ -21,27 +21,34 @@ TEXT_MAIN = "#E2E8F0"         # Clean readable near-white text
 TEXT_MUTED = "#64748B"        # Sleek grey text
 
 # -------------------------------------------------------------------------
-# MANDATORY FILE VALIDATION (Explicitly utilizes user provided dataset)
+# MANDATORY FILE VALIDATION & DYNAMIC LOADING
 # -------------------------------------------------------------------------
 DATASET_PATH = "datasets/dsa_data.json"
+dsa = {}
 
-if not os.path.exists(DATASET_PATH):
-    print(f"[-] CRITICAL CONFIGURATION ERROR: Absolute dependency missing.")
-    print(f"    The system requires '{DATASET_PATH}' to initialize.")
-    print(f"    Terminating AI Core environment setup pipeline.")
-    sys.exit(1)
+def load_dataset():
+    global dsa
+    if not os.path.exists(DATASET_PATH):
+        print(f"[-] CRITICAL CONFIGURATION ERROR: Absolute dependency missing.")
+        print(f"    The system requires '{DATASET_PATH}' to initialize.")
+        print(f"    Terminating AI Core environment setup pipeline.")
+        sys.exit(1)
 
-try:
-    with open(DATASET_PATH, "r", encoding="utf-8") as file:
-        dsa = json.load(file)
-except Exception as e:
-    print(f"[-] CRITICAL FILE READ ERROR: '{DATASET_PATH}' failed compilation.")
-    print(f"    Details: {e}")
-    sys.exit(1)
+    try:
+        with open(DATASET_PATH, "r", encoding="utf-8") as file:
+            dsa = json.load(file)
+    except Exception as e:
+        print(f"[-] CRITICAL FILE READ ERROR: '{DATASET_PATH}' failed compilation.")
+        print(f"    Details: {e}")
+        sys.exit(1)
+
+# Initialize dataset structure maps
+load_dataset()
 
 # Global TTS state tracker
 tts_enabled = True
 voice_gender = "male"
+
 def say(text):
     if not tts_enabled:
         return
@@ -50,7 +57,6 @@ def say(text):
         try:
             engine = pyttsx3.init()
             engine.setProperty("rate", 165)
-
             voices = engine.getProperty("voices")
 
             # Select voice
@@ -66,102 +72,181 @@ def say(text):
                         break
 
             cleaned_text = str(text).split("{")[0].replace("\n", " ").replace(";", " ")
-            engine.say(cleaned_text[:150])
+            engine.say(cleaned_text)
             engine.runAndWait()
-
         except Exception:
             pass
 
     threading.Thread(target=_speak_thread, daemon=True).start()
 
-def get_response(user_input):
+# -------------------------------------------------------------------------
+# DATASET EXTRACTION, INTENT ENGINE & MODULAR PARSING PIPELINES
+# -------------------------------------------------------------------------
+def detect_topic(text):
+    """
+    Scans variations of user inputs to isolate exact target keys within the multi-tier JSON.
+    Maps natural variants into the specific structure parameters requested.
+    """
+    # 2D Array check must precede basic array matching
+    if "2d array" in text or "two dimensional array" in text or "matrix" in text:
+        return ("Arrays", "2D Array")
+    if "array" in text:
+        return ("Arrays", "Array")
+    
+    # Specific Linked List variants mapping rules
+    if "circular doubly linked list" in text or "circular doubly" in text:
+        return ("Linked Lists", "Circular Doubly Linked List")
+    if "circular linked list" in text or "circular list" in text:
+        return ("Linked Lists", "Circular Linked List")
+    if "doubly linked list" in text or "doubly linked" in text:
+        return ("Linked Lists", "Doubly Linked List")
+    if "singly linked list" in text or "singly linked" in text:
+        return ("Linked Lists", "Singly Linked List")
+    if "linked list" in text or "node list" in text:
+        return ("Linked Lists", "Singly Linked List")
 
+    # Stacks matching pathways
+    if "stack using array" in text or "array stack" in text:
+        return ("Stacks", "Stack Using Array")
+    if "stack using linked list" in text or "linked list stack" in text:
+        return ("Stacks", "Stack Using Linked List")
+    if "stack" in text:
+        return ("Stacks", "Stack Using Array")
+
+    # Queues verification structures
+    if "circular queue" in text:
+        return ("Queues", "Circular Queue")
+    if "priority queue" in text:
+        return ("Queues", "Priority Queue")
+    if "simple queue" in text or "linear queue" in text:
+        return ("Queues", "Simple Queue")
+    if "deque" in text or "double ended queue" in text:
+        return ("Queues", "Deque")
+    if "queue" in text:
+        return ("Queues", "Simple Queue")
+
+    # Searching Algorithms algorithms mappings
+    if "linear search" in text or "sequential search" in text:
+        return ("Searching Algorithms", "Linear Search")
+    if "binary search" in text:
+        return ("Searching Algorithms", "Binary Search")
+
+    # Sorting Techniques processing loops
+    if "bubble sort" in text:
+        return ("Sorting Algorithms", "Bubble Sort")
+    if "selection sort" in text:
+        return ("Sorting Algorithms", "Selection Sort")
+    if "insertion sort" in text:
+        return ("Sorting Algorithms", "Insertion Sort")
+    if "merge sort" in text:
+        return ("Sorting Algorithms", "Merge Sort")
+    if "quick sort" in text:
+        return ("Sorting Algorithms", "Quick Sort")
+
+    # Common Operations validations
+    if "traversal" in text:
+        return ("Common Operations", "Traversal")
+    if "insertion operation" in text or "insert operation" in text:
+        return ("Common Operations", "Insertion")
+    if "deletion operation" in text or "delete operation" in text:
+        return ("Common Operations", "Deletion")
+    if "searching operation" in text or "search operation" in text:
+        return ("Common Operations", "Searching")
+
+    # Higher Tier Trees structure checking
+    if "binary search tree" in text or "bst" in text:
+        return ("Trees", "Binary Search Tree")
+    if "binary tree" in text:
+        return ("Trees", "Binary Tree")
+    if "heap" in text or "max heap" in text or "min heap" in text:
+        return ("Trees", "Heap")
+
+    return (None, None)
+
+def detect_intent(text):
+    """
+    Determines exactly which sub-attribute token parameter is requested from the data matrix block.
+    """
+    if "definition" in text or "what is" in text or "define" in text:
+        return "definition"
+    if "explain" in text or "explanation" in text or "tell me about" in text:
+        return "explanations"
+    if "fact" in text:
+        return "facts"
+    if "advantage" in text or "pro" in text:
+        return "advantages"
+    if "disadvantage" in text or "con" in text or "flaw" in text or "limitation" in text:
+        return "disadvantages"
+    if "application" in text or "use case" in text or "real world" in text:
+        return "applications"
+    if "complexity" in text or "time complexity" in text or "space complexity" in text:
+        return "time_complexity"
+    if "code" in text or "java" in text or "program" in text or "runnable" in text:
+        return "sample_code"
+    if "interview" in text or "questions" in text:
+        return "interview_questions"
+    if "example" in text or "sample data" in text:
+        return "examples"
+    
+    # Fallback default parameter rule if nothing explicit maps
+    return "definition"
+
+def format_response(topic_name, intent, data_block):
+    """
+    Formats the processed data elements into human-readable outputs instead of raw elements.
+    Converts multi-line code structures or formats bullet blocks.
+    """
+    header = f"Topic: {topic_name}\nSection: {intent.replace('_', ' ').title()}\n\n"    
+    if intent == "definition":
+        bullets = "\n".join([f"• {point}" for point in data_block])
+        return f"{header}{bullets}"
+        
+    elif intent == "explanations":
+        paragraph = " ".join(data_block)
+        return f"{header}{paragraph}"
+        
+    elif intent in ["facts", "advantages", "disadvantages", "interview_questions"]:
+        bullets = "\n".join([f"• {point}" for point in data_block])
+        return f"{header}{bullets}"
+        
+    elif intent == "applications":
+        bullets = "\n".join([f"→ {point}" for point in data_block])
+        return f"{header}{bullets}"
+        
+    elif intent == "examples":
+        bullets = "\n".join([f"e.g., {point}" for point in data_block])
+        return f"{header}{bullets}"
+        
+    elif intent == "time_complexity":
+        if isinstance(data_block, dict):
+            lines = []
+            for key, val in data_block.items():
+                lines.append(f"• {key.replace('_', ' ').title()}: {val}")
+            return header + "\n".join(lines)
+        return f"{header}• Metric Profile: {data_block}"
+        
+    elif intent == "sample_code":
+        # Returns the raw unformatted multi-line block with spacing indicators untouched
+        return f"Topic: {topic_name} (COMPLETE JAVA SPECIFICATION)\n{'-'*60}\n{data_block}"
+
+    return str(data_block)
+
+def get_response(user_input):
     text = user_input.lower().strip()
     
     # Check for close/exit command triggers
-    if text in ["exit", "quit", "close", "shutdown", "exit cmd"]:
+    if text in ["exit", "quit", "close", "shutdown", "exit cmd", "bye", "byee"]:
         return "[SYSTEM SHUTDOWN]: De-initializing core UI buffers. Goodbye."
 
-    try:
-        # Greetings Match
-        if text in ["hi", "hello", "hey"]:
-            return random.choice(dsa["greeting_data"]["hello"])
-        if text in ["good morning", "gm"]:
-            return random.choice(dsa["greeting_data"]["good_morning"])
-        if text in ["good afternoon", "ga"]:
-            return random.choice(dsa["greeting_data"]["good_afternoon"])
-        if text in ["good evening", "ge"]:
-            return random.choice(dsa["greeting_data"]["good_evening"])
-        
-        # Sorting Sub-matrix Matches
-        if any(word in text for word in ["what is sorting", "define sorting", "explain sorting", "tell me about sorting"]):
-            return random.choice(dsa["sorting"]["general"]["definition"])
-        if "types of sorting" in text or "sorting types" in text:
-            return "Available matrix algorithms:\n" + "\n".join([f" • {item}" for item in dsa["sorting"]["general"]["types"]])
+    # Direct Override for  ("Who created you", "Author", "God")
+    if any(keyword in text for keyword in ["who created you", "creator", "author", "who is your author", "who is god", "who made you"]):
+        return "[Ai Terminal]: I was developed by Farhan Shaikh to help students learn Data Structures and Algorithms"
 
-        # Dynamic Extraction Map Helper for Sorting Techniques
-        for algo in ["bubble_sort", "selection_sort", "insertion_sort", "merge_sort", "quick_sort"]:
-            readable_algo = algo.replace("_", " ")
-            if readable_algo in text:
-                if "complexity" in text or "time" in text:
-                    return f"[{readable_algo.upper()} TIME SCALES]:\n" + "\n".join(dsa["sorting"][algo]["time_complexity"])
-                if "code" in text or "syntax" in text or "program" in text:
-                    return f"// {readable_algo.upper()} STRUCTURAL IMPLEMENTATION:\n" + "\n".join(dsa["sorting"][algo]["sample_codes"])
-                return random.choice(dsa["sorting"][algo]["explanations"])
-
-        # Linked List Variant Parsers (Deep Nesting Parsing)
-        if "linked list" in text or "node list" in text:
-            if "circular doubly" in text:
-                target = dsa["linked_list"]["types"]["circular_doubly_linked_list"]
-                if "code" in text: return "\n".join(target["sample_codes"])
-                return random.choice(target["explanations"])
-            if "circular" in text:
-                target = dsa["linked_list"]["types"]["circular_linked_list"]
-                if "code" in text: return "\n".join(target["sample_codes"])
-                return random.choice(target["explanations"])
-            if "doubly" in text:
-                target = dsa["linked_list"]["types"]["doubly_linked_list"]
-                if "code" in text: return "\n".join(target["sample_codes"])
-                return random.choice(target["explanations"])
-            if "singly" in text:
-                target = dsa["linked_list"]["types"]["singly_linked_list"]
-                if "code" in text: return "\n".join(target["sample_codes"])
-                return random.choice(target["explanations"])
-                
-            if "fact" in text:
-                return random.choice(dsa["linked_list"]["facts"])
-            if "application" in text or "use case" in text:
-                return "Linked List real-world matrices:\n" + "\n".join([f" -> {item}" for item in dsa["linked_list"]["applications"]])
-            if "advantage" in text:
-                return "PROSECUTION ADVANTAGES:\n" + "\n".join([f" [+] {item}" for item in dsa["linked_list"]["advantages"]])
-            if "disadvantage" in text or "flaw" in text:
-                return "SYSTEM LIMITATIONS:\n" + "\n".join([f" [-] {item}" for item in dsa["linked_list"]["disadvantages"]])
-            return random.choice(dsa["linked_list"]["definition"])
-
-        # Linear Array Matches
-        if "array" in text:
-            if "fact" in text:
-                return random.choice(dsa["array"]["facts"])
-            if "application" in text or "use" in text:
-                return "Array allocations:\n" + "\n".join([f" • {item}" for item in dsa["array"]["applications"]])
-            if "example" in text:
-                return "Matrix instance sample: " + random.choice(dsa["array"]["examples"])
-            return random.choice(dsa["array"]["definition"])
-
-        # Dynamic Operations Framework Matches
-        if "operation" in text or "actions" in text:
-            return "Supported Matrix Mutations:\n- Insertion Tasks\n- Deletion Tasks\n- Traversal\n- Searching Routines"
-        if "insertion" in text:
-            return "Insertion Protocols:\n" + "\n".join([f" * {item}" for item in dsa["operations"]["insertion"]])
-        if "deletion" in text:
-            return "Deletion Protocols:\n" + "\n".join([f" * {item}" for item in dsa["operations"]["deletion"]])
-        if "traversal" in text:
-            return "\n".join(dsa["operations"]["traversal"])
-        if "search" in text:
-            return "\n".join(dsa["operations"]["searching"])
-
-    except KeyError as e:
-        return f"[MATRIX SYNTAX FAULT]: Target index token path path key {e} cannot be mapped onto active .json structure."
+    if any(keyword in text for keyword in ["god"]):
+        return "[Ai Terminal]: For me their is only one god 'Farhan Shaikh' "
+    # Direct Override for "What is DSA" (Simple 2-line explanation)
+    if text in ["what is dsa", "define dsa", "explain dsa", "dsa"]:
+        return "Data Structures and Algorithms (DSA) is a foundational branch of computer science focused on organizing data efficiently and designing step-by-step procedures to solve complex computational problems. Mastering DSA allows developers to write optimized, high-performance software that uses minimal time and memory resources."
 
     # Open Website Command
     if text.startswith("open "):
@@ -174,7 +259,45 @@ def get_response(user_input):
         except Exception:
             return f"Unable to open {site}."
 
-    return "System unable to resolve keyword. Query target data categories: [Sorting, Arrays, Linked Lists, Operations]."
+    # Process Greeting Sub-checks
+    if text in ["hi", "hello", "hey", "greetings"]:
+        return "Greetings! Core system data banks operational. Query target data categories: [Arrays, Linked Lists, Stacks, Queues, Searching, Sorting, Trees]."
+    if text in ["good morning", "gm", "good afternoon", "good evening"]:
+        return f"Hello, welcome back to the terminal framework. Ready to look up target algorithms data."
+
+    # Determine structural target positions
+    category, topic = detect_topic(text)
+    intent = detect_intent(text)
+
+    # Route request if valid matches are identified within the structure blocks
+    if category and topic:
+        try:
+            # Safely explore the knowledge base block configuration
+            kb = dsa.get("dsa_knowledge_base", {})
+            target_data = kb.get(category, {}).get(topic, {})
+            
+            if not target_data:
+                return f"[INFO UNMAPPED]: Topic structural reference '{topic}' was found but configuration branches are blank."
+
+            if intent in target_data:
+                return format_response(topic, intent, target_data[intent])
+            else:
+                return f"[FALLBACK PROCESSING]: The node framework path '{topic}' exists, but the parameter '{intent}' is currently unavailable."
+        except Exception as e:
+            return f"[CORE MAPPING ERROR]: Processing index tracking parameters failed. Reason: {e}"
+
+    # Target data fallback prompt tracking option suggestions
+    fallback_msg = (
+        "System unable to safely resolve dynamic keywords onto dataset map.\n\n"
+        "Supported Query Data Elements:\n"
+        "• Arrays: Array, 2D Array\n"
+        "• Linked Lists: Singly, Doubly, Circular, Circular Doubly\n"
+        "• Stacks & Queues: Simple Queue, Circular Queue, Priority Queue, Deque\n"
+        "• Search & Sort: Linear, Binary / Bubble, Selection, Insertion, Merge, Quick\n"
+        "• Trees: Binary Tree, BST, Heap\n"
+        "• Operations: Traversal, Insertion, Deletion, Searching"
+    )
+    return fallback_msg
 
 
 class ModernDSABotApp(ctk.CTk):
@@ -200,16 +323,13 @@ class ModernDSABotApp(ctk.CTk):
 
     def change_voice(self, choice):
         global voice_gender
-
         if choice.lower() == "female":
             voice_gender = "female"
         else:
             voice_gender = "male"
 
-        self.append_chat_bubble(
-            "SYSTEM",
-            f"Voice changed to {choice}."
-    )
+        self.append_chat_bubble("SYSTEM", f"Voice changed to {choice}.")
+
     # ==========================================
     # STARTUP EXPERIENCE (SPLASH MODULE)
     # ==========================================
@@ -283,7 +403,7 @@ class ModernDSABotApp(ctk.CTk):
             
         self.ring_angle += 0.05
         r = 135
-        cx, cy = w / 2, h / 0.415
+        cx, cy = w / 2, h / 2.415
         
         x1 = cx + r * math.cos(self.ring_angle)
         y1 = cy + r * math.sin(self.ring_angle)
@@ -327,7 +447,7 @@ class ModernDSABotApp(ctk.CTk):
         self.build_center_panel()
         self.build_right_panel()
         
-        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "Hello! I'm your DSA Assistant. Ask me about arrays, linked lists, sorting."))
+        self.after(400, lambda: self.append_chat_bubble("SYSTEM", "Hello! I'm your DSA Assistant. Ask me about arrays, linked lists, sorting or custom operations."))
 
     # ==========================================
     # TOP METRICS HEADER BLOCK
@@ -366,38 +486,47 @@ class ModernDSABotApp(ctk.CTk):
         left_panel = ctk.CTkFrame(self.main_container, fg_color=PANEL_COLOR, corner_radius=0, border_width=1, border_color="#1E293B")
         left_panel.grid(row=1, column=0, sticky="nsew", padx=(0,1), pady=(1,0))
         
-        lbl_sec = ctk.CTkLabel(left_panel, text="History", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
-        lbl_sec.pack(anchor="w", padx=20, pady=(20, 15))
+        lbl_sec = ctk.CTkLabel(left_panel, text="Category Routes", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
+        lbl_sec.pack(anchor="w", padx=20, pady=(20, 10))
         
-       
+        # Dynamic creation of Navigation maps from localized array targets
+        routes_data = [
+            ("Linear Array Structural Model", "What is an Array?"),
+            ("Two-Dimensional Grids", "Explain 2D Array"),
+            ("Connected Lists", "What is Singly Linked List"),
+            ("Stack Operations", "Explain Stack Using Array"),
+            ("Queue Scheduling Models", "What is Circular Queue"),
+            ("Tree Sorting Schemes", "Explain Binary Search Tree")
+        ]
+        
+        self.nav_buttons = []
+        for label, query in routes_data:
+            btn = ctk.CTkButton(
+                left_panel, text=label, font=ctk.CTkFont(family="Consolas", size=12),
+                fg_color="transparent", text_color=TEXT_MAIN, anchor="w", height=32,
+                hover_color="#1E293B", command=lambda l=label, q=query: self.handle_nav_click(l, q)
+            )
+            btn.pack(fill="x", padx=15, pady=4)
+            self.nav_buttons.append(btn)
             
         sys_lbl = ctk.CTkLabel(left_panel, text="Voice Assistant", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         sys_lbl.pack(anchor="w", padx=20, pady=(40, 10))
         
         self.voice_label = ctk.CTkLabel(
-        left_panel,
-        text="Voice Type",
-        font=ctk.CTkFont(family="Consolas", size=12),
-        text_color=TEXT_MAIN
-    )
+            left_panel, text="Voice Type", font=ctk.CTkFont(family="Consolas", size=12), text_color=TEXT_MAIN
+        )
         self.voice_label.pack(anchor="w", padx=20, pady=(10,5))
 
         self.voice_menu = ctk.CTkOptionMenu(
-        left_panel,
-        values=["Male", "Female"],
-        command=self.change_voice
-    )
+            left_panel, values=["Male", "Female"], command=self.change_voice
+        )
         self.voice_menu.pack(anchor="w", padx=20, pady=(0,10))
         self.voice_menu.set("Male")
 
         self.tts_switch = ctk.CTkSwitch(
-        left_panel,
-        text="Voice Enabled",
-        font=ctk.CTkFont(family="Consolas", size=12),
-        text_color=TEXT_MAIN,
-        progress_color=ACCENT_NEON,
-        command=self.toggle_tts
-    )
+            left_panel, text="Voice Enabled", font=ctk.CTkFont(family="Consolas", size=12),
+            text_color=TEXT_MAIN, progress_color=ACCENT_NEON, command=self.toggle_tts
+        )
         self.tts_switch.pack(anchor="w", padx=20, pady=10)
         self.tts_switch.select()
         
@@ -514,7 +643,7 @@ class ModernDSABotApp(ctk.CTk):
     def clear_chat_log(self):
         for child in self.chat_scroll.winfo_children():
             child.destroy()
-        self.append_chat_bubble("SYSTEM","Hello! I'm your AI assistant. How can I help you today?")
+        self.append_chat_bubble("SYSTEM", "Hello! I'm your AI assistant. How can I help you today?")
 
     # ==========================================
     # RIGHT PANEL MODULE (MACRO INTERCEPT CARDS)
@@ -526,18 +655,33 @@ class ModernDSABotApp(ctk.CTk):
         lbl_sec = ctk.CTkLabel(right_panel, text="KNOWLEDGE MACRO TRACERS", font=ctk.CTkFont(family="Consolas", size=11), text_color=TEXT_MUTED)
         lbl_sec.pack(anchor="w", padx=20, pady=(20, 10))
         
+        # Extended macro collection capturing multiple permutations across topics and intents
         cards_data = [
-            ("Bubble Sort Explanation", "What is bubble sort explanation"),
-            ("Bubble Sort Code Syntax", "Bubble sort sample codes"),
-            ("Selection Sort Matrix", "Selection sort explanation"),
-            ("Insertion Sort Blueprint", "Insertion sort sample codes"),
-            ("Merge Sort Log Scales", "Merge sort time complexity"),
-            ("Quick Sort Core Speed", "Quick sort time complexity"),
-            ("Singly Linked List Node", "singly linked list explanations"),
-            ("Doubly Pointer Chains", "doubly linked list sample codes"),
-            ("Circular Pointer Wraps", "circular linked list explanations"),
-            ("Array Cache Benefits", "array facts"),
-            ("Matrix Array Operations", "insertion operations")
+            ("What is DSA?", "What is DSA"),
+            ("Who created you?", "Who created you?"),
+            ("Array Definition", "Give definition of Array"),
+            ("Array Applications", "Applications of arrays"),
+            ("2D Array Examples", "Give examples of 2D array"),
+            ("Singly Linked List Facts", "Give facts about singly linked list"),
+            ("Doubly Linked List Code", "Show Java code for doubly linked list"),
+            ("Circular List Advantages", "Advantages of circular linked list"),
+            ("Circular Doubly Disadvantages", "Disadvantages of circular doubly linked list"),
+            ("Stack Interview Questions", "Interview questions on stack using array"),
+            ("Simple Queue Complexities", "Time complexity of simple queue"),
+            ("Circular Queue Explanation", "Explain circular queue"),
+            ("Priority Queue Applications", "Applications of priority queue"),
+            ("Deque Disadvantages", "Disadvantages of deque"),
+            ("Linear Search Definition", "What is linear search"),
+            ("Binary Search Complexity", "Time complexity of binary search"),
+            ("Bubble Sort Time Scales", "Time complexity of bubble sort"),
+            ("Selection Sort Advantages", "Advantages of selection sort"),
+            ("Insertion Sort Execution", "Explain insertion sort"),
+            ("Merge Sort Runnable Code", "Show Java code for merge sort"),
+            ("Quick Sort Disadvantages", "Disadvantages of quick sort"),
+            ("Binary Tree Applications", "Applications of binary tree"),
+            ("BST Interview Questions", "Interview questions on binary search tree"),
+            ("Heap Internal Allocation", "Give facts about heap"),
+            ("Traversal Core Operations", "Explain traversal operations")
         ]
         
         scroll_cards = ctk.CTkScrollableFrame(right_panel, fg_color="transparent")
